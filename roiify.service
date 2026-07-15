@@ -1,0 +1,20 @@
+[Unit]
+Description=Roiify Ad Simulator Service
+After=network.target
+After=nginx.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/roiify_ad_simulator
+Environment=PATH=/opt/roiify_ad_simulator/venv/bin
+ExecStart=/opt/roiify_ad_simulator/venv/bin/gunicorn --config /opt/roiify_ad_simulator/gunicorn.conf.py roiify_ad_simulator.web_server:app
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roiify Ad Simulator</title>
+<style>
+:root {
+  --bg: #0b0b12;
+  --surface: #141420;
+  --surface2: #1c1c2e;
+  --border: #2a2a45;
+  --text: #c5c5d8;
+  --text-dim: #6a6a82;
+  --accent: #00e4a0;
+  --accent-dim: rgba(0,228,160,0.08);
+  --accent2: #7c5cfc;
+  --accent2-dim: rgba(124,92,252,0.08);
+  --warn: #f5a623;
+  --warn-dim: rgba(245,166,35,0.08);
+  --err: #ff4757;
+  --ok: #2ed573;
+  --font: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { font-size: 13px; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--font);
+  line-height: 1.65; min-height: 100vh; overflow-x: hidden;
+}
+.bg-glow {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 800px 400px at 10% 0%, rgba(124,92,252,0.07), transparent),
+    radial-gradient(ellipse 600px 300px at 90% 10%, rgba(0,228,160,0.05), transparent);
+}
+.bg-grid {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(124,92,252,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,92,252,0.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+.wrap { position:relative; z-index:1; max-width:1200px; margin:0 auto; padding:20px; }
+
+/* header */
+header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 0 20px; border-bottom:1px solid var(--border); margin-bottom:20px;
+}
+.logo-row { display:flex; align-items:center; gap:12px; }
+.logo-badge {
+  width:42px; height:42px; border-radius:10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; font-weight:900; color:#000;
+}
+.logo-text h1 { font-size:17px; font-weight:700; letter-spacing:-0.3px; }
+.logo-text p { font-size:11px; color:var(--text-dim); }
+.toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.toolbar select, .toolbar button, .toolbar input {
+  background:var(--surface2); border:1px solid var(--border); border-radius:7px;
+  color:var(--text); padding:7px 12px; font-family:var(--font); font-size:12px;
+  outline:none; transition:border-color .2s;
+}
+.toolbar select:focus { border-color:var(--accent); }
+.btn-primary {
+  background:linear-gradient(135deg,var(--accent),#00c48a)!important; border:none!important;
+  color:#000!important; font-weight:700; cursor:pointer; padding:7px 22px!important;
+  letter-spacing:.3px;
+}
+.btn-primary:hover { opacity:.88; transform:translateY(-1px); }
+.btn-primary:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+.btn-primary.running { animation:pulse 1.4s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.55} }
+.btn-proxy {
+  background:var(--surface2)!important; border:1px solid var(--border)!important;
+  color:var(--text)!important; cursor:pointer; padding:7px 14px!important;
+}
+.btn-proxy.on { border-color:var(--accent)!important; color:var(--accent)!important; }
+
+.btn-download {
+  color:#0066cc!important; text-decoration:underline!important;
+  background:transparent!important; border:none!important;
+  font-family:var(--font)!important; font-size:12px!important;
+  cursor:pointer; padding:7px 12px!important;
+}
+.btn-download:hover { color:#0052a3!important; }
+
+/* tabs - removed, auto-select */
+.platform-tabs { display: none; }
+
+/* phase bar */
+.phase-bar { display:flex; gap:3px; margin-bottom:16px; }
+.phase-step {
+  flex:1; padding:8px 4px; border-radius:7px; text-align:center;
+  font-size:10px; font-weight:700; background:var(--surface2);
+  border:1px solid var(--border); color:var(--text-dim);
+  transition:all .35s; letter-spacing:.3px; white-space:nowrap; overflow:hidden;
+}
+.phase-step.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+.phase-step.done { border-color:var(--ok); color:var(--ok); background:rgba(46,213,115,0.06); }
+.phase-step.fail { border-color:var(--err); color:var(--err); background:rgba(255,71,87,0.06); }
+
+/* grid */
+.grid-main { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+.grid-results { display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:14px; }
+.card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:16px; overflow:hidden;
+}
+.card.hidden { display:none; }
+.card-hd {
+  display:flex; align-items:center; gap:8px; margin-bottom:12px;
+  font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:var(--text-dim);
+}
+.dot { width:7px; height:7px; border-radius:50%; }
+.dot.p { background:var(--accent2); box-shadow:0 0 6px var(--accent2); }
+.dot.g { background:var(--ok); box-shadow:0 0 6px var(--ok); }
+.dot.a { background:var(--warn); box-shadow:0 0 6px var(--warn); }
+.dot.r { background:var(--err); box-shadow:0 0 6px var(--err); }
+.dot.c { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+
+/* fields */
+.fields { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; }
+.fields .lbl { color:var(--text-dim); font-size:11px; white-space:nowrap; }
+.fields .val { color:var(--text); font-size:11.5px; word-break:break-all; }
+.fields .val.hi { color:var(--accent); font-weight:600; }
+.fields .val.warn { color:var(--warn); }
+.fields .val.ok { color:var(--ok); }
+.fields .val.err { color:var(--err); }
+
+/* summary grid */
+.sum-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-bottom:14px; }
+.sum-item {
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:12px 8px; text-align:center;
+}
+.sum-item .v { font-size:17px; font-weight:800; }
+.sum-item .l { font-size:9px; color:var(--text-dim); margin-top:3px; text-transform:uppercase; letter-spacing:.8px; }
+.v.ok { color:var(--ok); } .v.err { color:var(--err); } .v.dim { color:var(--text-dim); } .v.hi { color:var(--accent); }
+
+/* device card */
+.device-card .fields { grid-template-columns: 100px 1fr; }
+.ua-text { font-family:var(--font); font-size:10px; color:var(--text-dim); word-break:break-all; line-height:1.4; }
+.section-title { font-size:10px; color:var(--accent2); text-transform:uppercase; letter-spacing:1px; margin:10px 0 6px; padding-top:8px; border-top:1px solid var(--border); }
+
+/* progress bar */
+.bar-wrap { height:4px; background:var(--surface2); border-radius:2px; margin:4px 0 0; overflow:hidden; }
+.bar-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:2px; transition:width .5s; }
+
+/* proxy card */
+.proxy-card { margin-bottom:14px; }
+.proxy-form { display:flex; align-items:end; gap:12px; flex-wrap:wrap; }
+.proxy-form .form-group { margin:0; flex:1; min-width:120px; }
+.proxy-form .form-group:first-child { flex:0 0 auto; min-width:auto; }
+.proxy-form label {
+  display:block; font-size:10px; color:var(--text-dim); margin-bottom:5px;
+  text-transform:uppercase; letter-spacing:.8px;
+}
+.proxy-form input {
+  width:100%; background:var(--surface2); border:1px solid var(--border);
+  border-radius:7px; color:var(--text); padding:8px 12px; font-family:var(--font);
+  font-size:12px; outline:none;
+}
+.proxy-form input:focus { border-color:var(--accent); }
+.form-toggle { display:flex; align-items:center; gap:10px; padding-bottom:8px; }
+.toggle-switch {
+  width:40px; height:22px; background:var(--surface2); border:1px solid var(--border);
+  border-radius:11px; position:relative; cursor:pointer; transition:all .2s; flex-shrink:0;
+}
+.toggle-switch.on { background:var(--accent); border-color:var(--accent); }
+.toggle-switch::after {
+  content:''; position:absolute; width:16px; height:16px; border-radius:50%;
+  background:var(--text-dim); top:2px; left:2px; transition:all .2s;
+}
+.toggle-switch.on::after { background:#000; left:20px; }
+.btn-save {
+  padding:8px 20px; background:linear-gradient(135deg,var(--accent),#00c48a);
+  border:none; border-radius:7px; color:#000; font-family:var(--font);
+  font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.btn-save:hover { opacity:.9; }
+
+/* log */
+.log-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  overflow:hidden;
+}
+.log-card .card-hd { padding:14px 16px 0; margin-bottom:8px; }
+.log-body {
+  height:320px; overflow-y:auto; padding:4px 16px 14px; font-size:11.5px;
+}
+.log-body::-webkit-scrollbar { width:3px; }
+.log-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.log-line { padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.015); white-space:pre-wrap; word-break:break-all; }
+.log-line .ts { color:var(--text-dim); margin-right:6px; opacity:.7; }
+.log-line.err { color:var(--err); }
+.log-line.warn { color:var(--warn); }
+.log-line.phase { color:var(--accent2); font-weight:600; }
+.log-line.ok { color:var(--accent); }
+.log-line.done { color:var(--ok); font-weight:600; }
+
+@media (max-width:800px) {
+  .grid-main { grid-template-columns:1fr; }
+  .sum-grid { grid-template-columns:repeat(2,1fr); }
+  header { flex-direction:column; gap:12px; align-items:flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="bg-grid"></div>
+<div class="wrap">
+
+<header>
+  <div class="logo-row">
+    <div class="logo-badge">R</div>
+    <div class="logo-text">
+      <h1>Roiify Ad Simulator</h1>
+      <p>Device Fingerprint · Click Attribution · Conversion Pipeline</p>
+    </div>
+  </div>
+  <div class="toolbar">
+    <select id="systemSelect">
+      <option value="auto">自动选择</option>
+      <option value="ios">iOS</option>
+      <option value="android">安卓</option>
+      <option value="macos">macOS</option>
+      <option value="linux">Linux</option>
+      <option value="chromeos">Chrome OS</option>
+    </select>
+    <button id="runBtn" class="btn-primary" onclick="startSim()">▶ 单次运行</button>
+    <button id="autoBtn" class="btn-primary" style="background:linear-gradient(135deg,#7c5cfc,#5a3ddb)!important;color:#fff!important" onclick="startAuto()">🔄 自动循环</button>
+    <button id="stopBtn" class="btn-primary" style="background:linear-gradient(135deg,#ff4757,#c0392b)!important;display:none" onclick="stopSim()">⏹ 停止运行</button>
+  </div>
+</header>
+
+<div class="phase-bar" id="phaseBar">
+  <div class="phase-step" data-p="0">① 设备指纹</div>
+  <div class="phase-step" data-p="1">② 请求广告</div>
+  <div class="phase-step" data-p="2">③ 曝光上报</div>
+  <div class="phase-step" data-p="3">④ 点击跳转</div>
+  <div class="phase-step" data-p="4">⑤ Landing Page</div>
+  <div class="phase-step" data-p="5">⑥ 转化归因</div>
+</div>
+
+<div class="card proxy-card">
+  <div class="proxy-form">
+    <div class="form-toggle">
+      <div class="toggle-switch" id="proxyToggle" onclick="toggleProxy()"></div>
+      <label style="margin:0;cursor:pointer;font-size:12px;color:var(--text);text-transform:none;letter-spacing:0" onclick="toggleProxy()">启用代理</label>
+    </div>
+    <div class="form-group">
+      <label>账号</label>
+      <input id="pxUser" type="text" placeholder="代理账号">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input id="pxPass" type="password" placeholder="代理密码">
+    </div>
+    <button class="btn-save" onclick="saveProxy()">保存</button>
+    <button class="btn-delete" onclick="deleteProxy()" style="padding:8px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--err);font-family:var(--font);font-size:12px;cursor:pointer;">删除</button>
+  </div>
+</div>
+
+<div class="card stats-card">
+  <div class="card-hd"><span class="dot p"></span> 自动化统计</div>
+  <div class="sum-grid" id="statsGrid">
+    <div class="sum-item"><div class="v dim">0</div><div class="l">总次数</div></div>
+    <div class="sum-item"><div class="v dim">0</div><div class="l">成功次数</div></div>
+    <div class="sum-item"><div class="v dim">0%</div><div class="l">点击率</div></div>
+    <div class="sum-item"><div class="v dim">0%</div><div class="l">转化率</div></div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:8px;">
+        <div style="flex:1;background:var(--surface2);border-radius:6px;padding:8px;">
+          <div style="font-size:9px;color:var(--text-dim);">当前循环</div>
+          <div style="font-size:14px;font-weight:800;color:var(--accent);" id="currentRun">0</div>
+        </div>
+        <div style="flex:1;background:var(--surface2);border-radius:6px;padding:8px;">
+          <div style="font-size:9px;color:var(--text-dim);">平均时长</div>
+          <div style="font-size:14px;font-weight:800;color:var(--accent2);" id="avgDuration">0s</div>
+        </div>
+        <div style="flex:1;background:var(--surface2);border-radius:6px;padding:8px;">
+          <div style="font-size:9px;color:var(--text-dim);">目标转化率</div>
+          <div style="font-size:14px;font-weight:800;color:var(--warn);">3%</div>
+        </div>
+        <div style="flex:1;background:var(--surface2);border-radius:6px;padding:8px;">
+          <div style="font-size:9px;color:var(--text-dim);">总收益</div>
+          <div style="font-size:14px;font-weight:800;color:var(--ok);" id="totalRevenue">$0.00</div>
+        </div>
+        <div style="flex:1;background:var(--surface2);border-radius:6px;padding:8px;">
+          <div style="font-size:9px;color:var(--text-dim);">平均收益</div>
+          <div style="font-size:14px;font-weight:800;color:var(--accent);" id="avgRevenue">$0.00</div>
+        </div>
+      </div>
+</div>
+
+<div class="grid-results">
+  <div class="card hidden" id="resultCard">
+    <div class="card-hd"><span class="dot g"></span> 模拟结果</div>
+    <div class="sum-grid" id="sumGrid"></div>
+  </div>
+</div>
+
+<div class="grid-main">
+  <div class="card device-card hidden" id="deviceCard">
+    <div class="card-hd"><span class="dot c"></span> 设备信息</div>
+    <div class="fields" id="deviceFields"></div>
+  </div>
+  <div class="log-card">
+    <div class="card-hd">
+      <span class="dot a" id="logDot"></span> 实时日志 
+      <span id="logCount" style="font-size:10px;color:var(--text-dim)">0 行</span>
+      <button id="clearLogBtn" onclick="clearLogs()" style="margin-left:auto;font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-dim);cursor:pointer;" title="清空日志">清空</button>
+    </div>
+    <div class="log-body" id="logBody">
+      <div style="text-align:center;padding:40px 0;color:var(--text-dim);opacity:.5">等待运行...</div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+let running = false;
+let autoRunning = false;
+let logIdx = 0;
+let pollTimer = null;
+let currentDevice = null;
+let statsPollTimer = null;
+
+// ── init ──
+async function init() {
+  await loadProxy();
+  await loadDevice();
+  pollState();
+}
+
+function toggleProxy() {
+  const t = document.getElementById('proxyToggle');
+  t.classList.toggle('on');
+}
+
+async function loadProxy() {
+  try {
+    const r = await fetch('/api/proxy');
+    const p = await r.json();
+    document.getElementById('pxUser').value = p.username || '';
+    document.getElementById('pxPass').value = p.password || '';
+    document.getElementById('proxyToggle').classList.toggle('on', p.enabled);
+  } catch(e){}
+}
+
+async function saveProxy() {
+  const body = {
+    enabled: document.getElementById('proxyToggle').classList.contains('on'),
+    proxy_type: 'http',
+    proxy_plan: 'residential',
+    username: document.getElementById('pxUser').value,
+    password: document.getElementById('pxPass').value,
+  };
+  try {
+    await fetch('/api/proxy', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+async function deleteProxy() {
+  if (!confirm('确定要删除代理配置吗？')) return;
+  try {
+    await fetch('/api/proxy/delete', { method: 'POST' });
+    document.getElementById('pxUser').value = '';
+    document.getElementById('pxPass').value = '';
+    document.getElementById('proxyToggle').classList.remove('on');
+  } catch(e) { alert('删除失败: ' + e.message); }
+}
+
+async function loadDevice() {
+  try {
+    const r = await fetch('/api/device?platform=auto&age=365');
+    const d = await r.json();
+    if (!d.error) {
+      currentDevice = d;
+    }
+  } catch(e) {}
+}
+
+function renderDevice(d) {
+  if (!d) return;
+  const card = document.getElementById('deviceCard');
+  const fields = document.getElementById('deviceFields');
+  card.classList.remove('hidden');
+  const sections = [
+    { title: '硬件信息', items: [
+      ['品牌', d.brand], ['型号', d.model], ['平台', d.platform],
+      ['屏幕', d.screen], ['DPI', d.dpi], ['CPU', d.cpu],
+      ['GPU', d.gpu], ['内存', d.ram], ['存储', d.storage_avail+'GB/'+d.storage_total+'GB ('+d.storage_used_pct+'%)'],
+      ['电池健康', d.battery_health+'%'], ['充电循环', d.charge_cycles+'次'],
+    ]},
+    { title: '系统信息', items: [
+      ['系统', d.os], ['API', d.os_api], ['语言', d.locale],
+      ['时区', d.timezone], ['Chrome', d.chrome_version],
+      ['Root', d.is_rooted ? '是' : '否'], ['模拟器', d.is_emulator ? '是' : '否'],
+    ]},
+    { title: '网络信息', items: [
+      ['IP', d.ip], ['运营商', d.carrier], ['连接类型', d.connection],
+    ]},
+    { title: '标识信息', items: [
+      ['广告ID', d.advertising_id], ['设备ID类型', d.device_id_type],
+      ['Android ID', d.android_id_raw || '-'], ['OAID', d.oaid_raw || '-'],
+      ['IDFA', d.idfa_raw || '-'], ['IDFV', d.idfv_raw || '-'],
+      ['IMEI', d.imei_raw || '-'],
+    ]},
+    { title: '浏览器指纹', items: [
+      ['Cookies', d.cookies+'个'], ['LocalStorage', d.ls_keys+'个'],
+      ['已装应用', d.apps+'个'], ['WebGL指纹', d.webgl_fingerprint],
+      ['Canvas指纹', d.canvas_fingerprint], ['音频指纹', d.audio_fingerprint],
+      ['设备指纹', d.fingerprint],
+    ]},
+  ];
+  let html = '';
+  sections.forEach(sec => {
+    html += '<div class="section-title">' + sec.title + '</div>';
+    sec.items.forEach(function(item) {
+      var lbl = item[0], val = item[1];
+      var valClass = val === '是' ? 'ok' : val === '否' ? 'dim' : '';
+      html += '<div class="lbl">' + lbl + '</div><div class="val ' + valClass + '">' + (val || '-') + '</div>';
+    });
+  });
+  html += '<div class="section-title">User Agent</div>';
+  html += '<div class="ua-text" style="grid-column:1/-1">' + (d.ua || '-') + '</div>';
+  fields.innerHTML = html;
+}
+
+function renderResult(r) {
+  if (!r) {
+    document.getElementById('resultCard').classList.add('hidden');
+    return;
+  }
+  const card = document.getElementById('resultCard');
+  const grid = document.getElementById('sumGrid');
+  card.classList.remove('hidden');
+  const items = [
+    { label: '曝光上报', val: r.impression_sent ? '✓' : '✗', cls: r.impression_sent ? 'ok' : 'err' },
+    { label: '点击发送', val: r.click_sent ? '✓' : '✗', cls: r.click_sent ? 'ok' : 'err' },
+    { label: '落地页加载', val: r.landing_page_loaded ? '✓' : '✗', cls: r.landing_page_loaded ? 'ok' : 'err' },
+    { label: '转化归因', val: r.conversion_attributed ? '✓' : '✗', cls: r.conversion_attributed ? 'ok' : 'err' },
+    { label: '广告类别', val: r.ad_category || '-', cls: 'hi' },
+    { label: '转化价值', val: '$' + (r.conversion_value || 0).toFixed(2), cls: r.conversion_value > 0 ? 'ok' : 'dim' },
+  ];
+  let html = '';
+  items.forEach(function(item) {
+    html += '<div class="sum-item"><div class="v ' + item.cls + '">' + item.val + '</div><div class="l">' + item.label + '</div></div>';
+  });
+  if (r.proxy_used) {
+    html += '<div class="sum-item" style="grid-column:1/-1"><div class="v hi">' + (r.proxy_ip || '-') + '</div><div class="l">代理IP (' + (r.proxy_country || '-') + ') · 观看时长: ' + (r.view_duration || 0) + 's</div></div>';
+  }
+  grid.innerHTML = html;
+}
+
+function updateButtons() {
+  const runBtn = document.getElementById('runBtn');
+  const autoBtn = document.getElementById('autoBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  if (running || autoRunning) {
+    runBtn.style.display = 'none';
+    autoBtn.style.display = 'none';
+    stopBtn.style.display = 'inline-block';
+  } else {
+    runBtn.style.display = 'inline-block';
+    autoBtn.style.display = 'inline-block';
+    stopBtn.style.display = 'none';
+  }
+}
+
+function setPhase(backendPhase, status) {
+  const n = Math.max(0, backendPhase - 1);
+  const allDone = status === 'done';
+  document.querySelectorAll('.phase-step').forEach(function(s, i) {
+    s.classList.remove('active','done','fail');
+    if (allDone) {
+      if (i <= n) s.classList.add('done');
+    } else {
+      if (i < n) s.classList.add(status === 'fail' ? 'fail' : 'done');
+      if (i === n) s.classList.add(status === 'fail' ? 'fail' : 'active');
+    }
+  });
+}
+
+function addLogLine(raw) {
+        const el = document.getElementById('logBody');
+        if (el.querySelector('.opacity')) { el.innerHTML = ''; }
+        const div = document.createElement('div');
+        div.className = 'log-line';
+        const tsMatch = raw.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*/);
+        let ts = '', msg = raw;
+        if (tsMatch) { ts = tsMatch[1]; msg = raw.substring(tsMatch[0].length); }
+        div.innerHTML = '<span class="ts">' + ts + '</span>';
+        const span = document.createElement('span');
+        span.textContent = msg;
+        if (msg.startsWith('═══')) div.classList.add('done');
+        else if (msg.startsWith('─ Phase')) div.classList.add('phase');
+        else if (msg.indexOf('[ERROR]') >= 0) div.classList.add('err');
+        else if (msg.indexOf('[!]') >= 0) div.classList.add('warn');
+        else if (msg.indexOf('✓') >= 0 || msg.indexOf('成功') >= 0 || msg.indexOf('完成') >= 0) div.classList.add('ok');
+        div.appendChild(span);
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+        
+        const MAX_DISPLAY_LINES = 1000;
+        if (el.children.length > MAX_DISPLAY_LINES) {
+            const removeCount = el.children.length - MAX_DISPLAY_LINES;
+            for (let i = 0; i < removeCount; i++) {
+                el.removeChild(el.firstChild);
+            }
+        }
+        
+        document.getElementById('logCount').textContent = el.children.length + ' 行';
+    }
+
+async function clearLogs() {
+  const el = document.getElementById('logBody');
+  el.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-dim);opacity:.5">等待运行...</div>';
+  logIdx = 0;
+  document.getElementById('logCount').textContent = '0 行';
+  try {
+    await fetch('/api/clear_logs', { method: 'POST' });
+  } catch(e) { /* ignore */ }
+}
+
+async function startSim() {
+  if (running) return;
+  running = true;
+  updateButtons();
+  await clearLogs();
+  setPhase(0,'active');
+  renderResult(null);
+
+  const system = document.getElementById('systemSelect').value;
+  let platform = system;
+  if (['macos', 'linux', 'chromeos'].includes(system)) {
+    platform = 'android';
+  }
+
+  try {
+    const r = await fetch('/api/simulate', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({platform: platform, age:365, system: system})
+    });
+    const d = await r.json();
+    if (d.error) {
+      running = false;
+      updateButtons();
+      addLogLine('[ERROR] ' + d.error);
+      return;
+    }
+  } catch(e) {
+    running = false;
+    updateButtons();
+    addLogLine('[ERROR] 连接失败: ' + e.message);
+    return;
+  }
+}
+
+async function stopSim() {
+  if (!running && !autoRunning) return;
+  addLogLine('[!] 正在停止...');
+  try {
+    if (autoRunning) {
+      await fetch('/api/auto-stop', { method:'POST' });
+    } else {
+      await fetch('/api/stop', { method:'POST' });
+    }
+  } catch(e) {}
+}
+
+async function startAuto() {
+  if (autoRunning || running) return;
+  autoRunning = true;
+  updateButtons();
+  renderResult(null);
+  document.getElementById('deviceCard').classList.add('hidden');
+
+  try {
+    const r = await fetch('/api/auto-start', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({})
+    });
+    const d = await r.json();
+    if (d.error) {
+      autoRunning = false;
+      updateButtons();
+      addLogLine('[ERROR] ' + d.error);
+      return;
+    }
+    startStatsPoll();
+  } catch(e) {
+    autoRunning = false;
+    updateButtons();
+    addLogLine('[ERROR] 连接失败: ' + e.message);
+    return;
+  }
+}
+
+function startStatsPoll() {
+  if (statsPollTimer) clearInterval(statsPollTimer);
+  statsPollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/api/stats');
+      const s = await r.json();
+      updateStatsUI(s);
+      autoRunning = s.auto_running;
+      if (!autoRunning) {
+        clearInterval(statsPollTimer);
+        statsPollTimer = null;
+      }
+    } catch(e) {}
+  }, 1500);
+}
+
+function updateStatsUI(stats) {
+  const grid = document.getElementById('statsGrid');
+  if (!grid) return;
+  
+  grid.innerHTML = `
+    <div class="sum-item"><div class="v dim">${stats.total_runs}</div><div class="l">总次数</div></div>
+    <div class="sum-item"><div class="v ok">${stats.success_runs}</div><div class="l">成功次数</div></div>
+    <div class="sum-item"><div class="v ${stats.click_rate >= 1.5 ? 'ok' : 'warn'}">${stats.click_rate}%</div><div class="l">点击率</div></div>
+    <div class="sum-item"><div class="v ${stats.conversion_rate >= 1.5 ? 'ok' : 'warn'}">${stats.conversion_rate}%</div><div class="l">转化率</div></div>
+    <div class="sum-item"><div class="v ok">$${stats.total_revenue}</div><div class="l">总收益</div></div>
+    <div class="sum-item"><div class="v hi">$${stats.avg_revenue}</div><div class="l">平均收益</div></div>
+  `;
+  
+  document.getElementById('currentRun').textContent = stats.current_run || 0;
+  document.getElementById('avgDuration').textContent = stats.avg_duration ? stats.avg_duration + 's' : '0s';
+  document.getElementById('totalRevenue').textContent = '$' + (stats.total_revenue || 0).toFixed(2);
+  document.getElementById('avgRevenue').textContent = '$' + (stats.avg_revenue || 0).toFixed(2);
+}
+
+async function pollState() {
+  try {
+    const sr = await fetch('/api/state');
+    const st = await sr.json();
+    running = st.running;
+    updateButtons();
+    if (running) {
+      setPhase(st.phase, 'active');
+    } else {
+      if (st.phase >= 5 && st.result && !st.result.stopped) {
+        setPhase(6, 'done');
+        if (st.result.device) {
+          currentDevice = st.result.device;
+          if (!autoRunning) {
+            renderDevice(st.result.device);
+          }
+        }
+        renderResult(st.result);
+      }
+      if (st.error) {
+        setPhase(st.phase, 'fail');
+      }
+    }
+    const lr = await fetch('/api/logs?after=' + logIdx + '&limit=2000');
+    const ld = await lr.json();
+    if (ld.logs && ld.logs.length > 0) {
+      const body = document.getElementById('logBody');
+      const wasEmpty = body.children.length === 0 || body.querySelector('.opacity');
+      
+      if (wasEmpty && ld.logs.length > 500) {
+        const skipCount = ld.logs.length - 500;
+        ld.logs.slice(skipCount).forEach(addLogLine);
+        logIdx = ld.total - 500;
+      } else {
+        ld.logs.forEach(addLogLine);
+        logIdx = ld.total;
+      }
+    } else if (logIdx > ld.total) {
+      logIdx = Math.max(0, ld.total - 500);
+      document.getElementById('logBody').innerHTML = '';
+    }
+  } catch(e) { /* offline */ }
+  pollTimer = setTimeout(pollState, 400);
+}
+
+init();
+</script>
+</body>
+</html>
