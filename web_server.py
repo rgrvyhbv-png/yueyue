@@ -1341,39 +1341,39 @@ def auto_loop_thread():
             time.sleep(reaction_delay)
             
             conversion_values = {
-            "saas_enterprise": 800.00,
-            "mortgage": 600.00,
-            "investing_stocks": 350.00,
-            "crypto_trading": 300.00,
-            "insurance_life": 250.00,
-            "personal_loans": 200.00,
-            "credit_cards_premium": 180.00,
-            "debt_consolidation": 150.00,
-            "software_subscription": 120.00,
-            "ecommerce_high_ticket": 100.00,
-        }
-        categories = list(conversion_values.keys())
-        
-        value_weights = {
-            "saas_enterprise": 3.0,
-            "mortgage": 2.5,
-            "investing_stocks": 2.0,
-            "crypto_trading": 1.8,
-            "insurance_life": 1.5,
-            "personal_loans": 1.2,
-            "credit_cards_premium": 1.0,
-            "debt_consolidation": 0.8,
-            "software_subscription": 0.6,
-            "ecommerce_high_ticket": 0.5,
-        }
-        
-        weighted_values = [conversion_values[c] * value_weights[c] for c in categories]
-        weights = [v / sum(weighted_values) for v in weighted_values]
-        
-        ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
-        click_success_rate = _rnd.uniform(0.015, 0.025)
-        state.log(f"  [模拟] 广告类别: {ad_category} (价值${conversion_values[ad_category]}) | 预估点击率: {click_success_rate*100:.1f}%")
+                "saas_enterprise": 800.00,
+                "mortgage": 600.00,
+                "investing_stocks": 350.00,
+                "crypto_trading": 300.00,
+                "insurance_life": 250.00,
+                "personal_loans": 200.00,
+                "credit_cards_premium": 180.00,
+                "debt_consolidation": 150.00,
+                "software_subscription": 120.00,
+                "ecommerce_high_ticket": 100.00,
+            }
+            categories = list(conversion_values.keys())
             
+            value_weights = {
+                "saas_enterprise": 3.0,
+                "mortgage": 2.5,
+                "investing_stocks": 2.0,
+                "crypto_trading": 1.8,
+                "insurance_life": 1.5,
+                "personal_loans": 1.2,
+                "credit_cards_premium": 1.0,
+                "debt_consolidation": 0.8,
+                "software_subscription": 0.6,
+                "ecommerce_high_ticket": 0.5,
+            }
+            
+            weighted_values = [conversion_values[c] * value_weights[c] for c in categories]
+            weights = [v / sum(weighted_values) for v in weighted_values]
+            
+            ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
+            click_success_rate = _rnd.uniform(0.015, 0.025)
+            state.log(f"  [模拟] 广告类别: {ad_category} (价值${conversion_values[ad_category]}) | 预估点击率: {click_success_rate*100:.1f}%")
+                
             will_click = _rnd.random() < click_success_rate
             
             click_retries = 0
