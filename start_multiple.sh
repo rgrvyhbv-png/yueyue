@@ -18,19 +18,25 @@ NUM_INSTANCES=${1:-3}
 
 mkdir -p "$BASE_DIR/logs"
 
+echo "停止已有实例..."
+pkill -f "python web_server.py"
+sleep 2
+
 for i in $(seq 1 $NUM_INSTANCES); do
     PORT=$((8765 + i - 1))
-    LOG_FILE="$BASE_DIR/logs/roiify_$i.log"
+    LOG_FILE="$BASE_DIR/logs/roiify_$PORT.log"
     
     echo "启动实例 $i (端口: $PORT)..."
-    nohup gunicorn --workers=4 --bind=127.0.0.1:$PORT \
-        --timeout=120 --access-logfile="$BASE_DIR/logs/access_$i.log" \
-        --error-logfile="$BASE_DIR/logs/error_$i.log" \
-        web_server:app > "$LOG_FILE" 2>&1 &
+    nohup python web_server.py --port $PORT > "$LOG_FILE" 2>&1 &
     
     echo "实例 $i PID: $!"
-    sleep 2
+    sleep 1
 done
 
+echo ""
 echo "成功启动 $NUM_INSTANCES 个实例"
-echo "端口列表: $(seq -s, 8765 $((8765 + NUM_INSTANCES - 1)))"
+echo "端口列表:"
+for i in $(seq 1 $NUM_INSTANCES); do
+    PORT=$((8765 + i - 1))
+    echo "  - http://178.236.47.224:$PORT"
+done

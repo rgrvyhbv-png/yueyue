@@ -628,6 +628,14 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         if scroll_events > 0:
             state.log(f"  [模拟] 用户滚动屏幕 {scroll_events} 次")
             
+        attention_level = _rnd.choices(["high", "medium", "low"], weights=[0.2, 0.5, 0.3], k=1)[0]
+        if attention_level == "high":
+            state.log(f"  [模拟] 用户高度关注广告内容")
+        elif attention_level == "medium":
+            state.log(f"  [模拟] 用户正常浏览广告")
+        else:
+            state.log(f"  [模拟] 用户分心，快速浏览广告")
+            
         imp_ok = False
         if impression_token:
             imp_ok = web_sdk.send_impression(impression_token, view_duration=view_dur)
@@ -650,22 +658,30 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         time.sleep(reaction_delay)
         
         conversion_values = {
-            "personal_loans": 125.00,
-            "credit_cards": 85.00,
-            "investing": 200.00,
-            "insurance": 150.00,
-            "debt_consolidation": 95.00,
-            "mortgage": 500.00,
+            "saas_enterprise": 800.00,
+            "mortgage": 600.00,
+            "investing_stocks": 350.00,
+            "crypto_trading": 300.00,
+            "insurance_life": 250.00,
+            "personal_loans": 200.00,
+            "credit_cards_premium": 180.00,
+            "debt_consolidation": 150.00,
+            "software_subscription": 120.00,
+            "ecommerce_high_ticket": 100.00,
         }
         categories = list(conversion_values.keys())
         
         value_weights = {
-            "mortgage": 2.0,
-            "investing": 1.5,
-            "insurance": 1.2,
-            "personal_loans": 1.0,
+            "saas_enterprise": 3.0,
+            "mortgage": 2.5,
+            "investing_stocks": 2.0,
+            "crypto_trading": 1.8,
+            "insurance_life": 1.5,
+            "personal_loans": 1.2,
+            "credit_cards_premium": 1.0,
             "debt_consolidation": 0.8,
-            "credit_cards": 0.6,
+            "software_subscription": 0.6,
+            "ecommerce_high_ticket": 0.5,
         }
         
         weighted_values = [conversion_values[c] * value_weights[c] for c in categories]
@@ -1112,19 +1128,17 @@ def api_simulate():
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=8765, help='Port to listen on')
+    args = parser.parse_args()
+    
     apply_proxy_config()
-    port = 8765
+    port = args.port
     print(f"\n  Roiify Ad Simulator Dashboard")
     print(f"  http://localhost:{port}\n")
     if proxy.enabled:
         print(f"  Proxy enabled: {proxy.host}:{proxy.port} ({proxy.provider})")
-    
-    import webbrowser
-    def open_browser():
-        time.sleep(1)
-        webbrowser.open(f"http://localhost:{port}")
-    
-    threading.Thread(target=open_browser, daemon=True).start()
     
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
 
@@ -1327,30 +1341,38 @@ def auto_loop_thread():
             time.sleep(reaction_delay)
             
             conversion_values = {
-                "personal_loans": 125.00,
-                "credit_cards": 85.00,
-                "investing": 200.00,
-                "insurance": 150.00,
-                "debt_consolidation": 95.00,
-                "mortgage": 500.00,
-            }
-            categories = list(conversion_values.keys())
-            
-            value_weights = {
-                "mortgage": 2.0,
-                "investing": 1.5,
-                "insurance": 1.2,
-                "personal_loans": 1.0,
-                "debt_consolidation": 0.8,
-                "credit_cards": 0.6,
-            }
-            
-            weighted_values = [conversion_values[c] * value_weights[c] for c in categories]
-            weights = [v / sum(weighted_values) for v in weighted_values]
-            
-            ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
-            click_success_rate = _rnd.uniform(0.015, 0.025)
-            state.log(f"  [模拟] 广告类别: {ad_category} (价值${conversion_values[ad_category]}) | 预估点击率: {click_success_rate*100:.1f}%")
+            "saas_enterprise": 800.00,
+            "mortgage": 600.00,
+            "investing_stocks": 350.00,
+            "crypto_trading": 300.00,
+            "insurance_life": 250.00,
+            "personal_loans": 200.00,
+            "credit_cards_premium": 180.00,
+            "debt_consolidation": 150.00,
+            "software_subscription": 120.00,
+            "ecommerce_high_ticket": 100.00,
+        }
+        categories = list(conversion_values.keys())
+        
+        value_weights = {
+            "saas_enterprise": 3.0,
+            "mortgage": 2.5,
+            "investing_stocks": 2.0,
+            "crypto_trading": 1.8,
+            "insurance_life": 1.5,
+            "personal_loans": 1.2,
+            "credit_cards_premium": 1.0,
+            "debt_consolidation": 0.8,
+            "software_subscription": 0.6,
+            "ecommerce_high_ticket": 0.5,
+        }
+        
+        weighted_values = [conversion_values[c] * value_weights[c] for c in categories]
+        weights = [v / sum(weighted_values) for v in weighted_values]
+        
+        ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
+        click_success_rate = _rnd.uniform(0.015, 0.025)
+        state.log(f"  [模拟] 广告类别: {ad_category} (价值${conversion_values[ad_category]}) | 预估点击率: {click_success_rate*100:.1f}%")
             
             will_click = _rnd.random() < click_success_rate
             
