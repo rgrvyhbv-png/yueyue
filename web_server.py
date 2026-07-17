@@ -1388,7 +1388,7 @@ def auto_loop_thread():
                 reason = _rnd.choice(no_click_reasons)
                 state.log(f"  [模拟] 用户未点击广告 - {reason}")
                 click_sent = False
-                final_click_url = ad_response.click_url if ad_response else ""
+                final_click_url = ad_response.get("clickUrl", "") if ad_response else ""
                 click_id = None
             else:
                 click_motivations = [
