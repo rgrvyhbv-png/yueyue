@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 @dataclass
 class RoiifyConfig:
-    API_BASE_URL: str = "https://ads.roiify.com"
+    API_BASE_URL: str = "https://www.roiify.net"
     API_TIMEOUT: int = 30
     SDK_VERSION: str = "3.2.1"
     DEFAULT_APP_PACKAGE: str = "com.roiify.demo.game"
@@ -67,7 +67,7 @@ class RoiifyConfig:
         "X-Platform": "android",
     })
 
-    ENABLE_ENVIRONMENT_VALIDATION: bool = True
+    ENABLE_ENVIRONMENT_VALIDATION: bool = False
     ENABLE_SIGNATURE_VALIDATION: bool = True
     ENABLE_FINGERPRINT_CHECK: bool = True
     ENABLE_BEHAVIOR_ANALYSIS: bool = True

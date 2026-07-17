@@ -84,6 +84,8 @@ class SystemInfo:
 @dataclass
 class BrowserFingerprint:
     user_agent: str
+    browser_name: str
+    browser_version: str
     accept_language: str
     platform: str
     vendor: str

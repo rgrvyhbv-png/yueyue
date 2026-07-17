@@ -14,7 +14,6 @@ from utils import (
     generate_click_id,
     generate_impression_id,
     sign_request,
-    build_signed_params,
     NetworkClient,
 )
 
@@ -96,40 +95,150 @@ class RoiifySDK:
         ad_format: str,
         user_keywords: Optional[List[str]] = None,
     ) -> Dict:
-        if self.fp_generator:
-            base_params = self.fp_generator.get_sdk_request_params()
-        else:
-            base_params = self._get_device_params_direct()
+        financial_keywords = {
+            "personal_loans": [
+                "Personal Loans", "Bad Credit Loans", "Debt Consolidation", 
+                "Mortgage Refinance", "Best personal loans for bad credit",
+                "How to consolidate credit card debt", "Current mortgage refinance rates today",
+                "Fast cash loans for emergencies", "Emergency loans",
+                "Installment loans", "Secured loans", "Unsecured loans",
+                "Personal loan comparison", "Loan eligibility requirements",
+                "Fixed rate personal loans", "Flexible repayment loans"
+            ],
+            "credit_cards": [
+                "Best Credit Cards", "Travel Rewards Credit Cards", "Balance Transfer Cards",
+                "Secured Credit Cards", "Best travel credit cards with no foreign transaction fee",
+                "Top 10 balance transfer credit cards 0% APR", "Best credit cards for building credit",
+                "Premium rewards credit cards for high spenders", "Cash back credit cards",
+                "Business credit cards", "Student credit cards", "Low interest credit cards",
+                "Credit card benefits", "Rewards program comparison",
+                "Credit card application tips", "Low annual fee credit cards"
+            ],
+            "investing": [
+                "Investment Advisors", "Robo-Advisors", "Stock Trading Platforms",
+                "High-Yield Savings Accounts", "Best investment platforms for beginners",
+                "Top robo-advisors for retirement planning", "Investment portfolio management",
+                "Best high-yield savings accounts with no minimum deposit", "Stock trading",
+                "ETF trading", "Mutual funds", "Retirement accounts", "401k", "IRA",
+                "Investment strategies", "Financial planning services",
+                "Wealth management", "Tax-advantaged investments"
+            ],
+            "insurance": [
+                "Term Life Insurance", "Health Insurance Quotes", "Auto Insurance",
+                "Medicare Supplement", "Compare term life insurance quotes online",
+                "Best health insurance plans for self-employed", "Affordable car insurance for drivers",
+                "Best Medicare Advantage plans for seniors", "Home insurance", "Renters insurance",
+                "Disability insurance", "Long term care insurance", "Travel insurance",
+                "Insurance coverage comparison", "Policy benefits overview",
+                "Insurance claim process", "Comprehensive coverage plans"
+            ]
+        }
+        
+        ad_categories = [
+            {"id": "finance_personal_loans", "name": "Personal Loans", "category": "Finance"},
+            {"id": "finance_credit_cards", "name": "Credit Cards", "category": "Finance"},
+            {"id": "finance_investing", "name": "Investing", "category": "Finance"},
+            {"id": "finance_insurance", "name": "Insurance", "category": "Finance"},
+            {"id": "finance_debt", "name": "Debt Consolidation", "category": "Finance"},
+            {"id": "finance_mortgage", "name": "Mortgage", "category": "Finance"},
+        ]
 
-        ad_params = {
-            "request_id": generate_request_id(),
-            "slot_id": ad_slot_id,
-            "ad_format": ad_format,
-            "app_package": self.app_package,
-            "app_version": self.app_version,
-            "app_version_code": self.app_version_code,
-            "sdk_version": self.sdk_version,
-            "platform": self.platform,
-            "api_version": "3.0",
-            "bid_floor": random.randint(100, 500) / 100.0,
-            "user_age": self._get_age_from_range(self.device.profile.age_range),
-            "user_gender": self.device.profile.gender,
-            "user_keywords": ",".join(user_keywords or self.device.profile.interests),
-            "session_depth": random.randint(1, 20),
-            "session_duration": random.randint(10, 600),
-            "install_age_days": int((time.time() - self.device.system.app_install_time) / 86400),
-            "last_ad_time": int(time.time()) - random.randint(60, 3600) if random.random() > 0.3 else 0,
-            "screen_orientation": random.choice(["portrait", "landscape"]),
-            "is_prefetch": random.choice([0, 1]) if ad_format in ["banner", "native"] else 0,
-            "volume_on": random.choice([0, 1]),
-            "battery_level": random.randint(20, 100),
-            "is_charging": random.choice([0, 1]),
-            "wifi_connected": 1 if self.device.network.connection_type == "wifi" else 0,
+        category = random.choice(ad_categories)
+        keyword_group = random.choice(list(financial_keywords.keys()))
+        keywords = financial_keywords[keyword_group]
+        title_keyword = random.choice(keywords)
+        meta_keywords = random.sample(keywords, min(3, len(keywords)))
+        
+        page_titles = [
+            f"What are the best {title_keyword.lower()} in 2026?",
+            f"Best {title_keyword.lower()} for beginners",
+            f"{title_keyword} review and comparison",
+            f"Top {title_keyword.lower()} - complete guide",
+            f"{title_keyword} vs other options",
+            f"Compare {title_keyword.lower()} online",
+            f"How to choose the best {title_keyword.lower()}",
+            f"Ultimate guide to {title_keyword.lower()}",
+        ]
+        
+        content_domains = [
+            "https://www.financeadvice.com",
+            "https://www.investmentguide.com",
+            "https://www.creditcardreviews.com",
+            "https://www.insurancecompare.com",
+            "https://www.personalloansguide.com",
+            "https://www.mortgagetips.com",
+            "https://www.debtreliefhelp.com",
+            "https://www.retirementplanning.org",
+        ]
+        base_domain = random.choice(content_domains)
+
+        payload = {
+            "placementId": ad_slot_id,
+            "format": ad_format,
+            "visitorId": self.device.device_id,
+            "locale": self.device.system.locale or "en-US",
+            "language": self.device.system.language or "en",
+            "timezone": self.device.system.timezone or "UTC",
+            "sdkVersion": self.sdk_version,
+            "category": category["id"],
+            "categoryName": category["name"],
+            "pageTitle": random.choice(page_titles),
+            "pageKeywords": ",".join(meta_keywords),
+            "contentTopic": category["category"],
+            "pageType": "article",
+            "pageUrl": f"{base_domain}/{keyword_group}/{title_keyword.lower().replace(' ', '-')}",
         }
 
-        params = {**base_params, **ad_params}
-        signed_params = build_signed_params(params, config.REQUEST_SIGN_KEY)
-        return signed_params
+        dev = self.device
+        hw = getattr(dev, "hardware", None)
+        sys_info = getattr(dev, "system", None)
+        net = getattr(dev, "network", None)
+        browser = getattr(dev, "browser", None)
+        
+        if hasattr(dev, "device_id"):
+            payload["deviceId"] = dev.device_id
+            payload["deviceIdType"] = getattr(dev, "device_id_type", "gaid")
+        if hw:
+            payload["deviceModel"] = hw.model
+            payload["deviceBrand"] = hw.brand
+            payload["deviceType"] = getattr(hw, "device_type", "mobile")
+            if hasattr(hw, "screen_width") and hasattr(hw, "screen_height"):
+                payload["screenWidth"] = hw.screen_width
+                payload["screenHeight"] = hw.screen_height
+        if sys_info:
+            payload["os"] = sys_info.os_name
+            payload["osVersion"] = sys_info.os_version
+            payload["country"] = sys_info.country
+            if hasattr(sys_info, "app_package_name"):
+                payload["appPackage"] = sys_info.app_package_name or config.DEFAULT_APP_PACKAGE
+            if hasattr(sys_info, "app_version"):
+                payload["appVersion"] = sys_info.app_version or "1.0.0"
+        if net:
+            payload["carrier"] = net.carrier_name
+            payload["connectionType"] = net.connection_type
+        if browser:
+            browser_name = getattr(browser, "browser_name", None)
+            browser_version = getattr(browser, "browser_version", None)
+            if not browser_name or not browser_version:
+                ua = getattr(browser, "user_agent", "")
+                if "Chrome/" in ua:
+                    browser_name = "Chrome"
+                    browser_version = ua.split("Chrome/")[1].split(" ")[0].split(".")[0]
+                elif "CriOS/" in ua:
+                    browser_name = "CriOS"
+                    browser_version = ua.split("CriOS/")[1].split(" ")[0].split(".")[0]
+                else:
+                    browser_name = "Chrome"
+                    browser_version = "125"
+            payload["browserType"] = browser_name
+            payload["browserVersion"] = browser_version
+            if hasattr(browser, "viewport_width") and hasattr(browser, "viewport_height"):
+                payload["viewportWidth"] = browser.viewport_width
+                payload["viewportHeight"] = browser.viewport_height
+            if hasattr(browser, "device_pixel_ratio"):
+                payload["devicePixelRatio"] = browser.device_pixel_ratio
+
+        return payload
 
     def _get_device_params_direct(self) -> Dict:
         d = self.device
@@ -207,8 +316,8 @@ class RoiifySDK:
         logger.info(f"Requesting {ad_format} ad from slot {slot_id}")
 
         try:
-            ad_endpoint = f"{self.api_base}/api/v3/ad/request"
-            response = self.network.post(ad_endpoint, data=params)
+            ad_endpoint = f"{self.api_base}/ad/request"
+            response = self.network.post(ad_endpoint, json=params)
 
             if response.status_code != 200:
                 logger.error(f"Ad request failed: HTTP {response.status_code}")
@@ -309,28 +418,32 @@ class RoiifySDK:
             return True
 
         self._ad_show_time = int(time.time() * 1000)
-        ad = self._current_ad
-        tracking_params = self._get_tracking_params()
+        token = self._current_ad.click_id
+        
+        if not token:
+            logger.warning("No impression token available")
+            return False
 
-        impression_urls = [ad.impression_url] + ad.impression_tracking_urls
-        for i, url in enumerate(impression_urls):
-            if not url:
-                continue
-            try:
-                final_url = self.network.add_tracking_params(url, {
-                    **tracking_params,
-                    "event": "impression",
-                    "event_time": int(time.time() * 1000),
-                    "view_duration": int(view_duration * 1000),
-                })
-                self.network.get(final_url)
-                time.sleep(random.uniform(0.05, 0.2))
-            except Exception as e:
-                logger.debug(f"Impression tracker {i} failed: {e}")
+        impression_endpoint = f"{self.api_base}/ad/impression"
+        payload = {
+            "token": token,
+            "visitorId": self.device.device_id,
+            "viewDuration": round(view_duration * 1000),
+            "adInView": True,
+        }
 
-        self._impression_sent = True
-        logger.info(f"Impression sent for ad {ad.ad_id}")
-        return True
+        try:
+            response = self.network.post(impression_endpoint, json=payload, is_browser=True)
+            if response.ok:
+                self._impression_sent = True
+                logger.info("✓ Impression reported successfully")
+                return True
+            else:
+                logger.warning(f"Impression failed: HTTP {response.status_code}")
+                return False
+        except Exception as e:
+            logger.error(f"Impression error: {e}")
+            return False
 
     def get_click_url(self) -> Optional[str]:
         if not self._current_ad:

@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, request, jsonify, Response, send_file
 
 from device.fingerprint import DeviceFingerprintGenerator
-from sdk.client import RoiifySDK
+from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
 from config import config, proxy
@@ -573,15 +573,22 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         state.log(f"  {proxy_status_str} 向Roiify服务器发送广告请求...")
         state.log(f"  广告位ID: {placement_id}")
         
-        sdk = RoiifySDK(device=dev)
-        ad_resp = sdk.request_ad(ad_format="banner", ad_slot_id=placement_id)
+        web_sdk = RoiifyWebSDK(
+            user_agent=dev.browser.user_agent,
+            accept_language=dev.browser.accept_language,
+            timezone=dev.system.timezone,
+            locale=dev.system.locale,
+            use_proxy=proxy_actually_used,
+            device_info=dev,
+        )
+        ad_resp = web_sdk.request_ad(placement_id=placement_id, ad_format="banner")
         if not ad_resp:
             state.log(f"[ERROR] 广告请求失败，无法获取广告")
             state.log(f"  请检查：1) 网络连接 2) 代理配置 3) 广告位ID {placement_id} 是否有效")
             state.finish_run(error="广告请求失败")
             return
-        click_url = ad_resp.click_url
-        impression_token = ad_resp.click_id
+        click_url = ad_resp.get("clickUrl", "")
+        impression_token = ad_resp.get("impressionToken")
         if not click_url:
             state.log(f"[ERROR] 广告响应中缺少clickUrl")
             state.finish_run(error="广告响应缺少点击URL")
@@ -631,7 +638,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
             
         imp_ok = False
         if impression_token:
-            imp_ok = sdk.send_impression(view_duration=view_dur)
+            imp_ok = web_sdk.send_impression(impression_token=impression_token, view_duration=view_dur)
             state.log(f"  观看时长: {view_dur:.1f}s → 曝光{'已通过代理上报' if proxy_actually_used else '已直连上报'}{'成功' if imp_ok else '失败'}")
         else:
             state.log(f"  观看时长: {view_dur:.1f}s → 无曝光Token，跳过上报")
@@ -652,13 +659,13 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         
         conversion_values = {
             "saas_enterprise": 800.00,
-            "mortgage": 600.00,
-            "investing_stocks": 350.00,
-            "crypto_trading": 300.00,
-            "insurance_life": 250.00,
-            "personal_loans": 200.00,
-            "credit_cards_premium": 180.00,
-            "debt_consolidation": 150.00,
+            "finance_mortgage": 600.00,
+            "finance_investing_stocks": 350.00,
+            "finance_crypto_trading": 300.00,
+            "finance_insurance_life": 250.00,
+            "finance_personal_loans": 200.00,
+            "finance_credit_cards_premium": 180.00,
+            "finance_debt_consolidation": 150.00,
             "software_subscription": 120.00,
             "ecommerce_high_ticket": 100.00,
         }
@@ -666,13 +673,13 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         
         value_weights = {
             "saas_enterprise": 3.0,
-            "mortgage": 2.5,
-            "investing_stocks": 2.0,
-            "crypto_trading": 1.8,
-            "insurance_life": 1.5,
-            "personal_loans": 1.2,
-            "credit_cards_premium": 1.0,
-            "debt_consolidation": 0.8,
+            "finance_mortgage": 2.5,
+            "finance_investing_stocks": 2.0,
+            "finance_crypto_trading": 1.8,
+            "finance_insurance_life": 1.5,
+            "finance_personal_loans": 1.2,
+            "finance_credit_cards_premium": 1.0,
+            "finance_debt_consolidation": 0.8,
             "software_subscription": 0.6,
             "ecommerce_high_ticket": 0.5,
         }
@@ -723,16 +730,16 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
             while click_retries < max_click_retries and not click_sent and not state.should_stop():
                 click_retries += 1
                 state.log(f"  {proxy_status_str} 发送点击请求... (尝试 {click_retries}/{max_click_retries})")
-                click_url = sdk.get_click_url()
+                click_url = web_sdk.get_click_url() or click_url
                 if click_url:
-                    click_sent = sdk.network.get(click_url, is_browser=True, allow_redirects=True).status_code in [200, 301, 302, 303, 307, 308]
+                    click_sent = web_sdk.send_click()
                 
                 if click_sent:
                     state.log(f"  ✓ 点击请求发送成功")
                 else:
                     state.log(f"  ✗ 点击请求发送失败")
             
-            final_click_url = sdk.get_click_url() or click_url
+            final_click_url = web_sdk.get_click_url() or click_url
 
             click_id = None
             from urllib.parse import urlparse, parse_qs
@@ -778,7 +785,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         state.set_phase(5)
         state.log("─ Phase 5: Landing Page ─")
         from utils.network import NetworkClient
-        net_client = NetworkClient(device=dev, session=sdk.network.session)
+        net_client = NetworkClient(device=dev)
         wv = WebViewSimulator(device=dev, network=net_client)
         if click_id:
             net_client.cookies.set("roiify_click_id", click_id, domain="roiify.com")
@@ -1254,13 +1261,20 @@ def auto_loop_thread():
             placement_id = _rnd.choice(config.PLACEMENT_IDS)
             state.log(f"  广告位ID: {placement_id}")
             
-            sdk = RoiifySDK(device=dev)
-            ad_response = sdk.request_ad(ad_format="banner", ad_slot_id=placement_id)
+            web_sdk = RoiifyWebSDK(
+                user_agent=dev.browser.user_agent,
+                accept_language=dev.browser.accept_language,
+                timezone=dev.system.timezone,
+                locale=dev.system.locale,
+                use_proxy=proxy_actually_used,
+                device_info=dev,
+            )
+            ad_response = web_sdk.request_ad(placement_id=placement_id, ad_format="banner")
             
             if ad_response:
                 state.log(f"  ✓ 广告请求成功")
-                impression_token = ad_response.click_id
-                click_url = ad_response.click_url
+                impression_token = ad_response.get("impressionToken")
+                click_url = ad_response.get("clickUrl", "")
                 if impression_token:
                     state.log(f"  ✓ 曝光Token已获取")
                 if click_url:
@@ -1278,7 +1292,7 @@ def auto_loop_thread():
                     "duration": round(time.time() - run_start_time, 2),
                 }
                 state.update_stats(run_data)
-                time.sleep(_rnd.uniform(1, 3))
+                time.sleep(_rnd.uniform(5, 15))
                 continue
 
             if state.should_stop():
@@ -1309,8 +1323,8 @@ def auto_loop_thread():
             if scroll_events > 0:
                 state.log(f"  [模拟] 用户滚动屏幕 {scroll_events} 次")
             imp_ok = False
-            if ad_response and ad_response.click_id:
-                imp_ok = sdk.send_impression(view_duration=view_dur)
+            if ad_response and impression_token:
+                imp_ok = web_sdk.send_impression(impression_token=impression_token, view_duration=view_dur)
                 state.log(f"  观看时长: {view_dur:.1f}s → 曝光{'已通过代理上报' if proxy_actually_used else '已直连上报'}{'成功' if imp_ok else '失败'}")
             else:
                 state.log(f"  观看时长: {view_dur:.1f}s → 无曝光Token，跳过上报")
@@ -1328,13 +1342,13 @@ def auto_loop_thread():
             
             conversion_values = {
                 "saas_enterprise": 800.00,
-                "mortgage": 600.00,
-                "investing_stocks": 350.00,
-                "crypto_trading": 300.00,
-                "insurance_life": 250.00,
-                "personal_loans": 200.00,
-                "credit_cards_premium": 180.00,
-                "debt_consolidation": 150.00,
+                "finance_mortgage": 600.00,
+                "finance_investing_stocks": 350.00,
+                "finance_crypto_trading": 300.00,
+                "finance_insurance_life": 250.00,
+                "finance_personal_loans": 200.00,
+                "finance_credit_cards_premium": 180.00,
+                "finance_debt_consolidation": 150.00,
                 "software_subscription": 120.00,
                 "ecommerce_high_ticket": 100.00,
             }
@@ -1342,13 +1356,13 @@ def auto_loop_thread():
             
             value_weights = {
                 "saas_enterprise": 3.0,
-                "mortgage": 2.5,
-                "investing_stocks": 2.0,
-                "crypto_trading": 1.8,
-                "insurance_life": 1.5,
-                "personal_loans": 1.2,
-                "credit_cards_premium": 1.0,
-                "debt_consolidation": 0.8,
+                "finance_mortgage": 2.5,
+                "finance_investing_stocks": 2.0,
+                "finance_crypto_trading": 1.8,
+                "finance_insurance_life": 1.5,
+                "finance_personal_loans": 1.2,
+                "finance_credit_cards_premium": 1.0,
+                "finance_debt_consolidation": 0.8,
                 "software_subscription": 0.6,
                 "ecommerce_high_ticket": 0.5,
             }
@@ -1357,7 +1371,7 @@ def auto_loop_thread():
             weights = [v / sum(weighted_values) for v in weighted_values]
             
             ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
-            click_success_rate = _rnd.uniform(0.015, 0.025)
+            click_success_rate = 0.01
             state.log(f"  [模拟] 广告类别: {ad_category} (价值${conversion_values[ad_category]}) | 预估点击率: {click_success_rate*100:.1f}%")
                 
             will_click = _rnd.random() < click_success_rate
@@ -1401,16 +1415,16 @@ def auto_loop_thread():
                         break
                     click_retries += 1
                     state.log(f"  {proxy_status_str} 发送点击请求... (尝试 {click_retries}/{max_click_retries})")
-                    click_url = sdk.get_click_url()
+                    click_url = web_sdk.get_click_url() or click_url
                     if click_url:
-                        click_sent = sdk.network.get(click_url, is_browser=True, allow_redirects=True).status_code in [200, 301, 302, 303, 307, 308]
+                        click_sent = web_sdk.send_click()
                     
                     if click_sent:
                         state.log(f"  ✓ 点击请求发送成功")
                     else:
                         state.log(f"  ✗ 点击请求发送失败")
                 
-                final_click_url = sdk.get_click_url() or click_url
+                final_click_url = web_sdk.get_click_url() or click_url
 
                 click_id = None
                 from urllib.parse import urlparse, parse_qs
@@ -1454,13 +1468,13 @@ def auto_loop_thread():
                     "conversion_value": 0,
                 }
                 state.update_stats(run_data)
-                time.sleep(_rnd.uniform(1, 3))
+                time.sleep(_rnd.uniform(5, 15))
                 continue
 
             state.set_phase(5)
             state.log("─ Phase 5: Landing Page ─")
             from utils.network import NetworkClient
-            net_client = NetworkClient(device=dev, session=sdk.network.session)
+            net_client = NetworkClient(device=dev)
             wv = WebViewSimulator(device=dev, network=net_client)
             if click_id:
                 net_client.cookies.set("roiify_click_id", click_id, domain="roiify.com")

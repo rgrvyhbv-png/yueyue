@@ -269,13 +269,20 @@ class DeviceFingerprintGenerator:
 
     CHROME_VERSIONS = [
         "95.0.4638.74",
+        "98.0.4758.102",
         "100.0.4896.127",
         "104.0.5112.97",
         "108.0.5359.128",
         "112.0.5615.136",
         "116.0.5845.163",
+        "118.0.5993.88",
         "120.0.6099.230",
+        "122.0.6261.94",
+        "124.0.6367.60",
         "125.0.6422.110",
+        "126.0.6478.182",
+        "127.0.6533.100",
+        "128.0.6613.137",
     ]
 
     LOCALE_CONFIGS = [
@@ -754,9 +761,9 @@ class DeviceFingerprintGenerator:
             os_boot_time=boot_time,
             device_uptime_days=uptime_days,
             sdk_version=config.SDK_VERSION,
-            app_package_name=None,
-            app_version=None,
-            app_version_code=None,
+            app_package_name=config.DEFAULT_APP_PACKAGE,
+            app_version=config.DEFAULT_APP_VERSION,
+            app_version_code=125,
             app_install_time=now - install_days_ago * 86400 - random.randint(0, 86400),
             app_update_time=now - last_update_days_ago * 86400 - random.randint(0, 86400),
             app_first_run_time=now - install_days_ago * 86400 + random.randint(60, 3600),
@@ -773,8 +780,13 @@ class DeviceFingerprintGenerator:
         )
 
         plugins = self._generate_plugins_list("chrome")
+        browser_name = "Chrome"
+        browser_version = user_agent.split("Chrome/")[1].split(" ")[0].split(".")[0] if "Chrome/" in user_agent else "125"
+        
         browser = BrowserFingerprint(
             user_agent=user_agent,
+            browser_name=browser_name,
+            browser_version=browser_version,
             accept_language=f"{locale},{lang_code};q=0.9" + (",en;q=0.8" if lang_code != "en" else ""),
             platform=platform_nav,
             vendor="Google Inc.",
@@ -981,9 +993,9 @@ class DeviceFingerprintGenerator:
             os_boot_time=boot_time,
             device_uptime_days=uptime_days,
             sdk_version=config.SDK_VERSION,
-            app_package_name=None,
-            app_version=None,
-            app_version_code=None,
+            app_package_name=config.DEFAULT_APP_PACKAGE,
+            app_version=config.DEFAULT_APP_VERSION,
+            app_version_code=125,
             app_install_time=now - install_days_ago * 86400,
             app_update_time=now - last_update_days_ago * 86400,
             app_first_run_time=now - install_days_ago * 86400 + random.randint(60, 3600),
@@ -999,8 +1011,13 @@ class DeviceFingerprintGenerator:
             time_offset=tz_offset,
         )
 
+        browser_name = "Safari"
+        browser_version = user_agent.split("Version/")[1].split(" ")[0] if "Version/" in user_agent else "17.4"
+        
         browser = BrowserFingerprint(
             user_agent=user_agent,
+            browser_name=browser_name,
+            browser_version=browser_version,
             accept_language=f"{locale},{lang_code};q=0.9" + (",en;q=0.8" if lang_code != "en" else ""),
             platform="iPhone",
             vendor="Apple Computer, Inc.",

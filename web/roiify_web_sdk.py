@@ -31,6 +31,52 @@ class RoiifyWebSDK:
     VISITOR_ID_KEY = "zde_vid"
     
     FINANCIAL_KEYWORDS = {
+        "saas_enterprise": [
+            "Enterprise SaaS solutions", "Business software for enterprises",
+            "Enterprise resource planning", "ERP software for businesses",
+            "CRM enterprise solutions", "Business intelligence platforms",
+            "Cloud computing for enterprises", "Enterprise security software",
+            "SaaS for large corporations", "Enterprise workflow automation",
+            "Business management software", "Enterprise collaboration tools",
+            "Enterprise software licensing", "Business application platforms",
+            "Enterprise IT solutions", "Corporate software solutions"
+        ],
+        "mortgage": [
+            "Home mortgage loans", "Mortgage refinancing", "Best mortgage rates",
+            "Home loan comparison", "Mortgage lenders comparison",
+            "Fixed rate mortgage", "Adjustable rate mortgage",
+            "First time home buyer loans", "Jumbo mortgage loans",
+            "Reverse mortgage", "Home equity loans", "Mortgage calculators",
+            "Refinance mortgage rates", "Mortgage pre-approval",
+            "Home purchase loans", "Mortgage terms explained"
+        ],
+        "investing_stocks": [
+            "Stock trading platforms", "Online stock brokerage",
+            "Best stock trading apps", "Stock market investing",
+            "Day trading stocks", "Long term stock investments",
+            "Stock analysis tools", "Investing in blue chip stocks",
+            "Stock portfolio management", "Dividend investing",
+            "Growth stocks", "Value investing strategies",
+            "Stock market research", "Investment analysis software"
+        ],
+        "crypto_trading": [
+            "Cryptocurrency trading", "Bitcoin trading platform",
+            "Crypto exchange comparison", "Digital currency trading",
+            "Best crypto trading app", "Cryptocurrency investment",
+            "Altcoin trading", "Crypto trading strategies",
+            "Bitcoin wallet", "Crypto portfolio management",
+            "DeFi trading", "NFT marketplace",
+            "Cryptocurrency mining", "Crypto trading signals"
+        ],
+        "insurance_life": [
+            "Term life insurance", "Whole life insurance",
+            "Life insurance quotes", "Best life insurance companies",
+            "Permanent life insurance", "Universal life insurance",
+            "Life insurance for seniors", "Family life insurance",
+            "Life insurance policy comparison", "Affordable life insurance",
+            "Life insurance benefits", "Life insurance riders",
+            "Group life insurance", "Life insurance underwriting"
+        ],
         "personal_loans": [
             "Personal Loans", "Bad Credit Loans", "Debt Consolidation", 
             "Mortgage Refinance", "Best personal loans for bad credit",
@@ -40,42 +86,54 @@ class RoiifyWebSDK:
             "Personal loan comparison", "Loan eligibility requirements",
             "Fixed rate personal loans", "Flexible repayment loans"
         ],
-        "credit_cards": [
-            "Best Credit Cards", "Travel Rewards Credit Cards", "Balance Transfer Cards",
-            "Secured Credit Cards", "Best travel credit cards with no foreign transaction fee",
-            "Top 10 balance transfer credit cards 0% APR", "Best credit cards for building credit",
-            "Premium rewards credit cards for high spenders", "Cash back credit cards",
-            "Business credit cards", "Student credit cards", "Low interest credit cards",
-            "Credit card benefits", "Rewards program comparison",
-            "Credit card application tips", "Low annual fee credit cards"
+        "credit_cards_premium": [
+            "Premium credit cards", "Black credit cards", "Luxury credit cards",
+            "Platinum credit cards", "Best premium travel credit cards",
+            "High limit credit cards", "Business premium credit cards",
+            "Exclusive credit card benefits", "Premium rewards programs",
+            "Concierge credit cards", "First class credit cards",
+            "Elite credit cards", "Premium credit card lounge access",
+            "VIP credit cards", "Premium credit card perks"
         ],
-        "investing": [
-            "Investment Advisors", "Robo-Advisors", "Stock Trading Platforms",
-            "High-Yield Savings Accounts", "Best investment platforms for beginners",
-            "Top robo-advisors for retirement planning", "Investment portfolio management",
-            "Best high-yield savings accounts with no minimum deposit", "Stock trading",
-            "ETF trading", "Mutual funds", "Retirement accounts", "401k", "IRA",
-            "Investment strategies", "Financial planning services",
-            "Wealth management", "Tax-advantaged investments"
+        "debt_consolidation": [
+            "Debt consolidation loans", "Debt consolidation services",
+            "Best debt consolidation companies", "Credit card debt consolidation",
+            "Debt management plans", "Debt consolidation programs",
+            "Debt relief options", "Consolidate debt online",
+            "Debt consolidation calculator", "Debt settlement vs consolidation",
+            "Bad credit debt consolidation", "Debt consolidation reviews",
+            "Debt consolidation loans for bad credit", "Debt consolidation tips"
         ],
-        "insurance": [
-            "Term Life Insurance", "Health Insurance Quotes", "Auto Insurance",
-            "Medicare Supplement", "Compare term life insurance quotes online",
-            "Best health insurance plans for self-employed", "Affordable car insurance for drivers",
-            "Best Medicare Advantage plans for seniors", "Home insurance", "Renters insurance",
-            "Disability insurance", "Long term care insurance", "Travel insurance",
-            "Insurance coverage comparison", "Policy benefits overview",
-            "Insurance claim process", "Comprehensive coverage plans"
+        "software_subscription": [
+            "Software as a service", "SaaS subscription", "Cloud software",
+            "Productivity software subscription", "Project management software",
+            "Accounting software subscription", "Design software subscription",
+            "CRM software subscription", "Team collaboration tools",
+            "Antivirus subscription", "Backup software subscription",
+            "Video editing software", "Graphic design software",
+            "Development tools subscription", "Business software subscription"
+        ],
+        "ecommerce_high_ticket": [
+            "High end electronics", "Luxury goods online", "Premium products",
+            "High ticket items", "Luxury watches", "Designer handbags",
+            "Premium jewelry", "High end furniture", "Luxury cars",
+            "Premium appliances", "High end audio equipment",
+            "Designer clothing", "Luxury travel", "Premium home goods",
+            "High end fashion", "Luxury accessories"
         ]
     }
     
     AD_CATEGORIES = [
-        {"id": "finance_personal_loans", "name": "Personal Loans", "category": "Finance"},
-        {"id": "finance_credit_cards", "name": "Credit Cards", "category": "Finance"},
-        {"id": "finance_investing", "name": "Investing", "category": "Finance"},
-        {"id": "finance_insurance", "name": "Insurance", "category": "Finance"},
-        {"id": "finance_debt", "name": "Debt Consolidation", "category": "Finance"},
+        {"id": "saas_enterprise", "name": "Enterprise SaaS", "category": "Business"},
         {"id": "finance_mortgage", "name": "Mortgage", "category": "Finance"},
+        {"id": "finance_investing_stocks", "name": "Stock Investing", "category": "Finance"},
+        {"id": "finance_crypto_trading", "name": "Crypto Trading", "category": "Finance"},
+        {"id": "finance_insurance_life", "name": "Life Insurance", "category": "Finance"},
+        {"id": "finance_personal_loans", "name": "Personal Loans", "category": "Finance"},
+        {"id": "finance_credit_cards_premium", "name": "Premium Credit Cards", "category": "Finance"},
+        {"id": "finance_debt_consolidation", "name": "Debt Consolidation", "category": "Finance"},
+        {"id": "software_subscription", "name": "Software Subscription", "category": "Business"},
+        {"id": "ecommerce_high_ticket", "name": "High Ticket E-commerce", "category": "Retail"},
     ]
 
     def __init__(
@@ -186,9 +244,34 @@ class RoiifyWebSDK:
     ) -> Optional[Dict[str, Any]]:
         url = f"{self.api_origin}/ad/request"
         
-        category = random.choice(self.AD_CATEGORIES)
-        keyword_group = random.choice(list(self.FINANCIAL_KEYWORDS.keys()))
-        keywords = self.FINANCIAL_KEYWORDS[keyword_group]
+        category_weights = [
+            3.0,  # saas_enterprise
+            2.5,  # finance_mortgage
+            2.0,  # finance_investing_stocks
+            1.8,  # finance_crypto_trading
+            1.5,  # finance_insurance_life
+            1.2,  # finance_personal_loans
+            1.0,  # finance_credit_cards_premium
+            0.8,  # finance_debt_consolidation
+            0.6,  # software_subscription
+            0.5,  # ecommerce_high_ticket
+        ]
+        category = random.choices(self.AD_CATEGORIES, weights=category_weights, k=1)[0]
+        
+        category_id_to_keyword = {
+            "saas_enterprise": "saas_enterprise",
+            "finance_mortgage": "mortgage",
+            "finance_investing_stocks": "investing_stocks",
+            "finance_crypto_trading": "crypto_trading",
+            "finance_insurance_life": "insurance_life",
+            "finance_personal_loans": "personal_loans",
+            "finance_credit_cards_premium": "credit_cards_premium",
+            "finance_debt_consolidation": "debt_consolidation",
+            "software_subscription": "software_subscription",
+            "ecommerce_high_ticket": "ecommerce_high_ticket",
+        }
+        keyword_group = category_id_to_keyword.get(category["id"], "personal_loans")
+        keywords = self.FINANCIAL_KEYWORDS.get(keyword_group, self.FINANCIAL_KEYWORDS["personal_loans"])
         title_keyword = random.choice(keywords)
         meta_keywords = random.sample(keywords, min(3, len(keywords)))
         
