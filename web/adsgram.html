@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Adsgram Ad Player</title>
+<script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    background: #000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    overflow: hidden;
+}
+#adContainer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+#loading {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: rgba(0,0,0,0.9);
+    z-index: 1000;
+}
+#loading .spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+#loading p {
+    font-size: 14px;
+    opacity: 0.8;
+}
+#statusBar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 15px;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 12px;
+    z-index: 999;
+    display: none;
+}
+#statusBar .status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#statusBar .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4CAF50;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+</style>
+</head>
+<body>
+<div id="loading">
+    <div class="spinner"></div>
+    <p>正在加载广告...</p>
+</div>
+
+<div id="statusBar">
+    <div class="status">
+        <span>Adsgram Ad Player</span>
+        <span class="dot"></span>
+    </div>
+</div>
+
+<div id="adContainer"></div>
+
+<script>
+const config = {
+    blockId: window.location.searchParams.get('blockId') || '123',
+    debug: window.location.searchParams.get('debug') === 'true'
+};
+
+let AdController = null;
+let startTime = null;
+
+function hideLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) {
+        loading.style.opacity = '0';
+        setTimeout(() => loading.remove(), 300);
+    }
+}
+
+function showStatus() {
+    document.getElementById('statusBar').style.display = 'block';
+}
+
+function sendMessage(type, data) {
+    if (window.parent !== window) {
+        window.parent.postMessage({
+            type: type,
+            data: data,
+            blockId: config.blockId
+        }, '*');
+    }
+    console.log(type, data);
+}
+
+async function initAd() {
+    try {
+        if (!window.Adsgram) {
+            throw new Error('Adsgram SDK not loaded');
+        }
+
+        AdController = window.Adsgram.init({
+            blockId: config.blockId,
+            debug: config.debug,
+            debugConsole: true
+        });
+
+        AdController.addEventListener('onStart', () => {
+            hideLoading();
+            showStatus();
+            startTime = Date.now();
+            sendMessage('ADSGRAM_START', {
+                timestamp: Date.now(),
+                state: 'playing'
+            });
+            console.log('[ADSGRAM] Ad started');
+        });
+
+        AdController.addEventListener('onSkip', () => {
+            const duration = startTime ? (Date.now() - startTime) / 1000 : 0;
+            sendMessage('ADSGRAM_SKIP', {
+                timestamp: Date.now(),
+                duration: duration,
+                description: 'User skipped ad'
+            });
+            console.log('[ADSGRAM] Ad skipped');
+        });
+
+        AdController.addEventListener('onReward', () => {
+            const duration = startTime ? (Date.now() - startTime) / 1000 : 0;
+            sendMessage('ADSGRAM_REWARD', {
+                timestamp: Date.now(),
+                duration: duration,
+                done: true,
+                description: 'User watched ad till the end, reward granted'
+            });
+            console.log('[ADSGRAM] Reward granted');
+        });
+
+        AdController.addEventListener('onComplete', () => {
+            const duration = startTime ? (Date.now() - startTime) / 1000 : 0;
+            sendMessage('ADSGRAM_COMPLETE', {
+                timestamp: Date.now(),
+                duration: duration,
+                done: true,
+                description: 'Ad completed'
+            });
+            console.log('[ADSGRAM] Ad complete');
+        });
+
+        AdController.addEventListener('onError', () => {
+            sendMessage('ADSGRAM_ERROR', {
+                timestamp: Date.now(),
+                done: false,
+                error: true,
+                description: 'Error during ad playback'
+            });
+            console.log('[ADSGRAM] Error occurred');
+        });
+
+        AdController.addEventListener('onBannerNotFound', () => {
+            sendMessage('ADSGRAM_NOT_FOUND', {
+                timestamp: Date.now(),
+                done: false,
+                error: true,
+                description: 'No banner available'
+            });
+            console.log('[ADSGRAM] Banner not found');
+        });
+
+        AdController.addEventListener('onNonStopShow', () => {
+            sendMessage('ADSGRAM_NON_STOP', {
+                timestamp: Date.now(),
+                description: 'User trying to watch multiple ads in a row'
+            });
+            console.log('[ADSGRAM] Non-stop show detected');
+        });
+
+        AdController.addEventListener('onTooLongSession', () => {
+            sendMessage('ADSGRAM_LONG_SESSION', {
+                timestamp: Date.now(),
+                description: 'Session too long, restart required'
+            });
+            console.log('[ADSGRAM] Too long session');
+        });
+
+        await AdController.show();
+
+    } catch (error) {
+        console.error('[ADSGRAM] Initialization error:', error);
+        sendMessage('ADSGRAM_ERROR', {
+            timestamp: Date.now(),
+            done: false,
+            error: true,
+            description: error.message
+        });
+    }
+}
+
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'START_ADSGRAM') {
+        initAd();
+    }
+});
+
+setTimeout(() => {
+    initAd();
+}, 500);
+</script>
+</body>
+</html>

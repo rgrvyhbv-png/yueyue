@@ -954,6 +954,18 @@ a{color:#0066cc;text-decoration:underline;}</style></head>
 </body></html>"""
 
 
+@app.route("/adsgram")
+def adsgram_page():
+    import os
+    html_path = os.path.join(os.path.dirname(__file__), 'web', 'adsgram.html')
+    with open(html_path, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    resp = app.make_response(html_content)
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
+
+
 @app.route("/api/device")
 def api_device():
     plat = request.args.get("platform", "auto")
