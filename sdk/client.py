@@ -194,10 +194,8 @@ class RoiifySDK:
                 logger.error("Environment validation failed, cannot request ad")
                 return None
 
-        slot_id = ad_slot_id or config.AD_SLOT_IDS.get(
-            ad_format.replace("_video", "").replace("_", ""),
-            list(config.AD_SLOT_IDS.values())[0]
-        )
+        import random as _rnd
+        slot_id = ad_slot_id or _rnd.choice(config.PLACEMENT_IDS)
 
         self._ad_request_time = int(time.time() * 1000)
         self._request_id = generate_request_id()

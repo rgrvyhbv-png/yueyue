@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, request, jsonify, Response, send_file
 
 from device.fingerprint import DeviceFingerprintGenerator
-from web.roiify_web_sdk import RoiifyWebSDK
+from sdk.client import RoiifySDK
 from ad.webview import WebViewSimulator
 
 from config import config, proxy
@@ -573,22 +573,15 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         state.log(f"  {proxy_status_str} 向Roiify服务器发送广告请求...")
         state.log(f"  广告位ID: {placement_id}")
         
-        web_sdk = RoiifyWebSDK(
-            user_agent=dev.browser.user_agent,
-            accept_language=dev.browser.accept_language,
-            timezone=dev.system.timezone,
-            locale=dev.system.locale,
-            use_proxy=proxy_actually_used,
-            device_info=dev,
-        )
-        ad_resp = web_sdk.request_ad(placement_id=placement_id, ad_format="banner")
+        sdk = RoiifySDK(device=dev)
+        ad_resp = sdk.request_ad(ad_format="banner", ad_slot_id=placement_id)
         if not ad_resp:
             state.log(f"[ERROR] 广告请求失败，无法获取广告")
             state.log(f"  请检查：1) 网络连接 2) 代理配置 3) 广告位ID {placement_id} 是否有效")
             state.finish_run(error="广告请求失败")
             return
-        click_url = ad_resp.get("clickUrl", "")
-        impression_token = ad_resp.get("impressionToken")
+        click_url = ad_resp.click_url
+        impression_token = ad_resp.click_id
         if not click_url:
             state.log(f"[ERROR] 广告响应中缺少clickUrl")
             state.finish_run(error="广告响应缺少点击URL")
@@ -638,7 +631,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
             
         imp_ok = False
         if impression_token:
-            imp_ok = web_sdk.send_impression(impression_token, view_duration=view_dur)
+            imp_ok = sdk.send_impression(view_duration=view_dur)
             state.log(f"  观看时长: {view_dur:.1f}s → 曝光{'已通过代理上报' if proxy_actually_used else '已直连上报'}{'成功' if imp_ok else '失败'}")
         else:
             state.log(f"  观看时长: {view_dur:.1f}s → 无曝光Token，跳过上报")
@@ -730,15 +723,16 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
             while click_retries < max_click_retries and not click_sent and not state.should_stop():
                 click_retries += 1
                 state.log(f"  {proxy_status_str} 发送点击请求... (尝试 {click_retries}/{max_click_retries})")
-                click_sent = web_sdk.send_click()
+                click_url = sdk.get_click_url()
+                if click_url:
+                    click_sent = sdk.network.get(click_url, is_browser=True, allow_redirects=True).status_code in [200, 301, 302, 303, 307, 308]
                 
                 if click_sent:
                     state.log(f"  ✓ 点击请求发送成功")
                 else:
                     state.log(f"  ✗ 点击请求发送失败")
             
-            final_click_url = web_sdk.last_click_url
-            state.log(f"  Visitor ID: {web_sdk.visitor_id}")
+            final_click_url = sdk.get_click_url() or click_url
 
             click_id = None
             from urllib.parse import urlparse, parse_qs
@@ -784,7 +778,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         state.set_phase(5)
         state.log("─ Phase 5: Landing Page ─")
         from utils.network import NetworkClient
-        net_client = NetworkClient(device=dev, session=web_sdk.session)
+        net_client = NetworkClient(device=dev, session=sdk.network.session)
         wv = WebViewSimulator(device=dev, network=net_client)
         if click_id:
             net_client.cookies.set("roiify_click_id", click_id, domain="roiify.com")
@@ -1260,20 +1254,13 @@ def auto_loop_thread():
             placement_id = _rnd.choice(config.PLACEMENT_IDS)
             state.log(f"  广告位ID: {placement_id}")
             
-            web_sdk = RoiifyWebSDK(
-                user_agent=dev.browser.user_agent,
-                accept_language=dev.browser.accept_language,
-                timezone=dev.system.timezone,
-                locale=dev.system.locale,
-                use_proxy=proxy_actually_used,
-                device_info=dev,
-            )
-            ad_response = web_sdk.request_ad(placement_id=placement_id, ad_format="banner")
+            sdk = RoiifySDK(device=dev)
+            ad_response = sdk.request_ad(ad_format="banner", ad_slot_id=placement_id)
             
-            if ad_response and web_sdk.last_ad:
+            if ad_response:
                 state.log(f"  ✓ 广告请求成功")
-                impression_token = web_sdk.last_ad.get("impressionToken")
-                click_url = web_sdk.last_ad.get("clickUrl", "")
+                impression_token = ad_response.click_id
+                click_url = ad_response.click_url
                 if impression_token:
                     state.log(f"  ✓ 曝光Token已获取")
                 if click_url:
@@ -1322,9 +1309,8 @@ def auto_loop_thread():
             if scroll_events > 0:
                 state.log(f"  [模拟] 用户滚动屏幕 {scroll_events} 次")
             imp_ok = False
-            impression_token = web_sdk.last_ad.get("impressionToken")
-            if impression_token:
-                imp_ok = web_sdk.send_impression(impression_token, view_duration=view_dur)
+            if ad_response and ad_response.click_id:
+                imp_ok = sdk.send_impression(view_duration=view_dur)
                 state.log(f"  观看时长: {view_dur:.1f}s → 曝光{'已通过代理上报' if proxy_actually_used else '已直连上报'}{'成功' if imp_ok else '失败'}")
             else:
                 state.log(f"  观看时长: {view_dur:.1f}s → 无曝光Token，跳过上报")
@@ -1388,7 +1374,7 @@ def auto_loop_thread():
                 reason = _rnd.choice(no_click_reasons)
                 state.log(f"  [模拟] 用户未点击广告 - {reason}")
                 click_sent = False
-                final_click_url = web_sdk.last_ad.get("clickUrl", "") if web_sdk.last_ad else ""
+                final_click_url = ad_response.click_url if ad_response else ""
                 click_id = None
             else:
                 click_motivations = [
@@ -1415,15 +1401,16 @@ def auto_loop_thread():
                         break
                     click_retries += 1
                     state.log(f"  {proxy_status_str} 发送点击请求... (尝试 {click_retries}/{max_click_retries})")
-                    click_sent = web_sdk.send_click()
+                    click_url = sdk.get_click_url()
+                    if click_url:
+                        click_sent = sdk.network.get(click_url, is_browser=True, allow_redirects=True).status_code in [200, 301, 302, 303, 307, 308]
                     
                     if click_sent:
                         state.log(f"  ✓ 点击请求发送成功")
                     else:
                         state.log(f"  ✗ 点击请求发送失败")
                 
-                final_click_url = web_sdk.last_click_url
-                state.log(f"  Visitor ID: {web_sdk.visitor_id}")
+                final_click_url = sdk.get_click_url() or click_url
 
                 click_id = None
                 from urllib.parse import urlparse, parse_qs
@@ -1473,7 +1460,7 @@ def auto_loop_thread():
             state.set_phase(5)
             state.log("─ Phase 5: Landing Page ─")
             from utils.network import NetworkClient
-            net_client = NetworkClient(device=dev, session=web_sdk.session)
+            net_client = NetworkClient(device=dev, session=sdk.network.session)
             wv = WebViewSimulator(device=dev, network=net_client)
             if click_id:
                 net_client.cookies.set("roiify_click_id", click_id, domain="roiify.com")
