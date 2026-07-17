@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 class AdsgramSDK:
-    def __init__(self, block_id: str, debug: bool = False):
+    def __init__(self, block_id: str = "int-38203", debug: bool = False):
         self.block_id = block_id
         self.debug = debug
         self.api_origin = "https://sad.adsgram.ai"
