@@ -9,16 +9,15 @@ BASE_PORT=8765
 
 NUM_INSTANCES=${1:-10}
 
+PYTHON_BIN="$VENV_DIR/bin/python3"
+
 if [ ! -d "$VENV_DIR" ]; then
     echo "[INIT] 创建虚拟环境..."
     python3 -m venv "$VENV_DIR"
 fi
 
-echo "[INIT] 激活虚拟环境..."
-source "$VENV_DIR/bin/activate"
-
 echo "[INIT] 安装依赖..."
-pip install -r "$BASE_DIR/requirements.txt" -q
+$PYTHON_BIN -m pip install -r "$BASE_DIR/requirements.txt" -q
 
 mkdir -p "$LOG_DIR"
 mkdir -p "$PID_DIR"
@@ -38,7 +37,7 @@ start_instance() {
     local pid_file="$PID_DIR/roiify_${port}.pid"
     
     echo "[START] 启动实例 $index (端口: $port)..."
-    nohup python3 web_server.py --port $port >> "$log_file" 2>&1 &
+    nohup $PYTHON_BIN web_server.py --port $port >> "$log_file" 2>&1 &
     local pid=$!
     
     echo $pid > "$pid_file"
@@ -49,6 +48,7 @@ start_instance() {
         return 0
     else
         echo "[FAIL] 实例 $index 启动失败"
+        echo "[DEBUG] 查看日志: tail -20 $log_file"
         rm -f "$pid_file"
         return 1
     fi
