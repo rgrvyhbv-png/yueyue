@@ -41,14 +41,35 @@ start_instance() {
     local pid=$!
     
     echo $pid > "$pid_file"
-    sleep 3
     
-    if kill -0 $pid 2>/dev/null; then
-        echo "[OK] 实例 $index 启动成功，PID: $pid"
+    local waited=0
+    local max_wait=15
+    local port_ready=0
+    
+    while [ $waited -lt $max_wait ]; do
+        sleep 1
+        waited=$((waited + 1))
+        
+        if kill -0 $pid 2>/dev/null; then
+            if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
+                port_ready=1
+                break
+            fi
+        else
+            break
+        fi
+    done
+    
+    if [ $port_ready -eq 1 ]; then
+        echo "[OK] 实例 $index 启动成功，PID: $pid，端口: $port"
+        return 0
+    elif kill -0 $pid 2>/dev/null; then
+        echo "[WARN] 实例 $index 进程运行中但端口未监听，PID: $pid"
+        echo "[DEBUG] 查看日志: tail -30 $log_file"
         return 0
     else
         echo "[FAIL] 实例 $index 启动失败"
-        echo "[DEBUG] 查看日志: tail -20 $log_file"
+        echo "[DEBUG] 查看日志: tail -30 $log_file"
         rm -f "$pid_file"
         return 1
     fi
@@ -62,7 +83,7 @@ for i in $(seq 1 $NUM_INSTANCES); do
     if [ $? -eq 0 ]; then
         success_count=$((success_count + 1))
     fi
-    sleep 2
+    sleep 4
 done
 
 echo ""
