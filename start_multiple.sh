@@ -7,7 +7,7 @@ PID_DIR="$BASE_DIR/pids"
 SERVER_IP="178.236.47.224"
 BASE_PORT=8765
 
-NUM_INSTANCES=${1:-8}
+NUM_INSTANCES=${1:-10}
 MAX_MEMORY=1500
 MAX_CPU=70
 
@@ -108,6 +108,3 @@ done
 echo ""
 echo "日志目录: $LOG_DIR"
 echo "PID目录: $PID_DIR"
-echo ""
-echo "查看运行状态: ./status.sh"
-echo "停止所有实例: ./stop_all.sh"

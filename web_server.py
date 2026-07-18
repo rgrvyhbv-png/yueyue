@@ -942,6 +942,18 @@ def index():
     return resp
 
 
+@app.route("/control.html")
+def control():
+    import os
+    html_path = os.path.join(os.path.dirname(__file__), 'web', 'control.html')
+    with open(html_path, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    resp = app.make_response(html_content)
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
+
+
 @app.route("/test")
 def test_page():
     return """<!DOCTYPE html>
@@ -1126,6 +1138,128 @@ def api_simulate():
     t = threading.Thread(target=run_simulation_thread, args=(platform, age, system), daemon=True)
     t.start()
     return jsonify({"started": True, "platform": platform, "system": system})
+
+
+INSTANCES_CONFIG = {
+    "base_port": 8765,
+    "max_instances": 10,
+}
+
+
+@app.route("/api/instances", methods=["GET"])
+def api_instances():
+    import subprocess
+    instances = []
+    for i in range(1, INSTANCES_CONFIG["max_instances"] + 1):
+        port = INSTANCES_CONFIG["base_port"] + i - 1
+        pid_file = f"pids/roiify_{port}.pid"
+        running = False
+        pid = None
+        
+        if os.path.exists(pid_file):
+            try:
+                with open(pid_file, 'r') as f:
+                    pid = int(f.read().strip())
+                subprocess.run(['kill', '-0', str(pid)], check=True, capture_output=True)
+                running = True
+            except:
+                pid = None
+        
+        instances.append({
+            "id": i,
+            "port": port,
+            "pid": pid,
+            "running": running,
+            "url": f"http://178.236.47.224:{port}",
+        })
+    return jsonify({"instances": instances})
+
+
+@app.route("/api/instances/<int:instance_id>/start", methods=["POST"])
+def api_instance_start(instance_id):
+    if instance_id < 1 or instance_id > INSTANCES_CONFIG["max_instances"]:
+        return jsonify({"error": "Invalid instance ID"}), 400
+    
+    port = INSTANCES_CONFIG["base_port"] + instance_id - 1
+    
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["python", "web_server.py", "--port", str(port)],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        return jsonify({"started": True, "instance_id": instance_id, "port": port})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": f"Failed to start: {e.stderr}"}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({"started": True, "instance_id": instance_id, "port": port})
+
+
+@app.route("/api/instances/<int:instance_id>/stop", methods=["POST"])
+def api_instance_stop(instance_id):
+    if instance_id < 1 or instance_id > INSTANCES_CONFIG["max_instances"]:
+        return jsonify({"error": "Invalid instance ID"}), 400
+    
+    port = INSTANCES_CONFIG["base_port"] + instance_id - 1
+    pid_file = f"pids/roiify_{port}.pid"
+    
+    try:
+        if os.path.exists(pid_file):
+            with open(pid_file, 'r') as f:
+                pid = int(f.read().strip())
+            import subprocess
+            subprocess.run(['kill', str(pid)], capture_output=True)
+            time.sleep(1)
+            subprocess.run(['kill', '-9', str(pid)], capture_output=True)
+            os.remove(pid_file)
+        
+        subprocess.run(['pkill', '-f', f'python web_server.py --port {port}'], capture_output=True)
+        return jsonify({"stopped": True, "instance_id": instance_id, "port": port})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/instances/all/start", methods=["POST"])
+def api_instances_all_start():
+    import subprocess
+    for i in range(1, INSTANCES_CONFIG["max_instances"] + 1):
+        port = INSTANCES_CONFIG["base_port"] + i - 1
+        try:
+            subprocess.Popen(
+                ["python", "web_server.py", "--port", str(port)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+        except:
+            pass
+    return jsonify({"started": True, "count": INSTANCES_CONFIG["max_instances"]})
+
+
+@app.route("/api/instances/all/stop", methods=["POST"])
+def api_instances_all_stop():
+    import subprocess
+    subprocess.run(['pkill', '-f', 'python web_server.py'], capture_output=True)
+    return jsonify({"stopped": True})
+
+
+@app.route("/api/instances/<int:instance_id>/stats", methods=["GET"])
+def api_instance_stats(instance_id):
+    if instance_id < 1 or instance_id > INSTANCES_CONFIG["max_instances"]:
+        return jsonify({"error": "Invalid instance ID"}), 400
+    
+    port = INSTANCES_CONFIG["base_port"] + instance_id - 1
+    
+    try:
+        import urllib.request
+        url = f"http://localhost:{port}/api/stats"
+        with urllib.request.urlopen(url, timeout=5) as response:
+            data = response.read().decode('utf-8')
+            return jsonify(json.loads(data))
+    except Exception as e:
+        return jsonify({"error": str(e), "instance_id": instance_id, "port": port}), 503
 
 
 def main():
