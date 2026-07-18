@@ -97,8 +97,9 @@ header {
   background:var(--surface); border:1px solid var(--border); border-radius:12px;
   padding:16px; position:relative; transition:all .3s;
 }
-.instance-card.running { border-color:var(--accent); box-shadow:0 0 20px rgba(0,228,160,0.1); }
-.instance-card.stopped { border-color:var(--border); }
+.instance-card.online { border-color:var(--accent); box-shadow:0 0 20px rgba(0,228,160,0.1); }
+.instance-card.offline { border-color:var(--border); opacity:.6; }
+.instance-card.running { border-color:var(--accent2); box-shadow:0 0 20px rgba(124,92,252,0.15); }
 
 .card-header {
   display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;
@@ -109,15 +110,17 @@ header {
 .status-dot {
   width:10px; height:10px; border-radius:50%;
 }
-.status-dot.running { background:var(--ok); box-shadow:0 0 8px var(--ok); animation:pulse 2s infinite; }
-.status-dot.stopped { background:var(--text-dim); }
+.status-dot.online { background:var(--ok); box-shadow:0 0 8px var(--ok); animation:pulse 2s infinite; }
+.status-dot.offline { background:var(--text-dim); }
+.status-dot.running { background:var(--accent2); box-shadow:0 0 8px var(--accent2); animation:pulse 1s infinite; }
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.5} }
 
 .status-text {
   font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.8px;
 }
-.status-text.running { color:var(--ok); }
-.status-text.stopped { color:var(--text-dim); }
+.status-text.online { color:var(--ok); }
+.status-text.offline { color:var(--text-dim); }
+.status-text.running { color:var(--accent2); }
 
 .info-row {
   display:flex; justify-content:space-between; padding:4px 0; font-size:11px;
@@ -128,6 +131,7 @@ header {
 .info-row .v { color:var(--text); font-weight:600; }
 .info-row .v.ok { color:var(--ok); }
 .info-row .v.warn { color:var(--warn); }
+.info-row .v.hi { color:var(--accent); }
 
 .card-actions {
   display:flex; gap:6px; margin-top:12px;
@@ -136,15 +140,16 @@ header {
   flex:1; padding:6px 8px; font-size:10px; font-weight:600;
   border-radius:5px; cursor:pointer; border:none; transition:all .2s;
 }
-.card-actions .btn-start { background:var(--accent-dim); color:var(--accent); border:1px solid var(--accent); }
-.card-actions .btn-start:hover { background:var(--accent); color:#000; }
+.card-actions .btn-sim { background:var(--accent-dim); color:var(--accent); border:1px solid var(--accent); }
+.card-actions .btn-sim:hover { background:var(--accent); color:#000; }
+.card-actions .btn-auto { background:var(--accent2-dim); color:var(--accent2); border:1px solid var(--accent2); }
+.card-actions .btn-auto:hover { background:var(--accent2); color:#fff; }
 .card-actions .btn-stop { background:var(--err); color:#fff; }
 .card-actions .btn-stop:hover { opacity:.8; }
 .card-actions .btn-view { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
 .card-actions .btn-view:hover { border-color:var(--accent2); color:var(--accent2); }
 
-.card-actions .btn-start:disabled,
-.card-actions .btn-stop:disabled {
+.card-actions button:disabled {
   opacity:.4; cursor:not-allowed; transform:none;
 }
 
@@ -169,6 +174,15 @@ header {
   padding:6px 12px; border-radius:5px; font-size:11px; cursor:pointer;
 }
 .refresh-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+.instructions {
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:12px 16px; margin-bottom:16px;
+  font-size:11px; color:var(--text-dim);
+}
+.instructions code {
+  background:var(--surface); padding:2px 6px; border-radius:4px; color:var(--accent);
+}
 </style>
 </head>
 <body>
@@ -185,11 +199,15 @@ header {
     </div>
   </div>
   <div class="toolbar">
-    <button class="btn-primary" onclick="startAll()">▶ 全部启动</button>
-    <button class="btn-danger" onclick="stopAll()">⏹ 全部停止</button>
-    <button class="refresh-btn" onclick="loadInstances()">🔄 刷新</button>
+    <button class="btn-primary" onclick="startAllAuto()">🔄 全部开始自动循环</button>
+    <button class="btn-danger" onclick="stopAllSim()">⏹ 全部停止</button>
+    <button class="refresh-btn" onclick="loadInstances()">🔄 刷新状态</button>
   </div>
 </header>
+
+<div class="instructions">
+  <strong>部署说明:</strong> 使用SSH连接服务器后运行 <code>bash start_multiple.sh</code> 启动10个实例，然后刷新此页面查看状态。
+</div>
 
 <div class="stats-header">
   <div class="stat-card">
@@ -197,12 +215,12 @@ header {
     <div class="l">总实例数</div>
   </div>
   <div class="stat-card">
-    <div class="v ok" id="runningCount">0</div>
-    <div class="l">运行中</div>
+    <div class="v ok" id="onlineCount">0</div>
+    <div class="l">在线</div>
   </div>
   <div class="stat-card">
-    <div class="v dim" id="stoppedCount">0</div>
-    <div class="l">已停止</div>
+    <div class="v dim" id="offlineCount">0</div>
+    <div class="l">离线</div>
   </div>
   <div class="stat-card">
     <div class="v" id="totalRevenue">$0.00</div>
@@ -223,19 +241,89 @@ header {
 </div>
 
 <script>
+const SERVER_IP = '178.236.47.224';
+const BASE_PORT = 8765;
+const MAX_INSTANCES = 10;
+
 let instances = [];
 let pollTimer = null;
 
-async function loadInstances() {
+async function checkInstance(port) {
   try {
-    const r = await fetch('/api/instances');
-    const d = await r.json();
-    instances = d.instances;
-    renderInstances();
-    updateStats();
-  } catch(e) {
-    showToast('error', '加载失败: ' + e.message);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    
+    const r = await fetch(`http://${SERVER_IP}:${port}/api/state`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeout);
+    
+    if (r.ok) {
+      const d = await r.json();
+      return {
+        online: true,
+        running: d.running || d.auto_running || false,
+        phase: d.phase || 0,
+        ...d
+      };
+    }
+  } catch(e) {}
+  
+  return { online: false, running: false };
+}
+
+async function getInstanceStats(port) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    
+    const r = await fetch(`http://${SERVER_IP}:${port}/api/stats`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeout);
+    
+    if (r.ok) {
+      return await r.json();
+    }
+  } catch(e) {}
+  
+  return { total_runs: 0, success_runs: 0, total_revenue: 0, click_rate: 0 };
+}
+
+async function loadInstances() {
+  const results = await Promise.all(
+    Array.from({length: MAX_INSTANCES}, (_, i) => checkInstance(BASE_PORT + i))
+  );
+  
+  instances = results.map((result, i) => ({
+    id: i + 1,
+    port: BASE_PORT + i,
+    url: `http://${SERVER_IP}:${BASE_PORT + i}`,
+    ...result
+  }));
+  
+  await loadAllStats();
+  renderInstances();
+  updateStats();
+}
+
+async function loadAllStats() {
+  let totalRevenue = 0;
+  let totalRuns = 0;
+  
+  for (const inst of instances) {
+    if (inst.online) {
+      const stats = await getInstanceStats(inst.port);
+      inst.stats = stats;
+      totalRevenue += (stats.total_revenue || 0);
+      totalRuns += (stats.total_runs || 0);
+    }
   }
+  
+  document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toFixed(2);
+  document.getElementById('totalRuns').textContent = totalRuns;
 }
 
 function renderInstances() {
@@ -243,15 +331,17 @@ function renderInstances() {
   let html = '';
   
   instances.forEach(inst => {
+    const statusClass = inst.running ? 'running' : (inst.online ? 'online' : 'offline');
+    const statusText = inst.running ? '运行中' : (inst.online ? '在线' : '离线');
+    const stats = inst.stats || {};
+    
     html += `
-      <div class="instance-card ${inst.running ? 'running' : 'stopped'}">
+      <div class="instance-card ${statusClass}">
         <div class="card-header">
           <div class="instance-id">#${inst.id}</div>
           <div style="display:flex;align-items:center;gap:6px">
-            <div class="status-dot ${inst.running ? 'running' : 'stopped'}"></div>
-            <div class="status-text ${inst.running ? 'running' : 'stopped'}">
-              ${inst.running ? '运行中' : '已停止'}
-            </div>
+            <div class="status-dot ${statusClass}"></div>
+            <div class="status-text ${statusClass}">${statusText}</div>
           </div>
         </div>
         
@@ -260,26 +350,33 @@ function renderInstances() {
           <span class="v">${inst.port}</span>
         </div>
         <div class="info-row">
-          <span class="l">PID</span>
-          <span class="v">${inst.pid || '-'}</span>
+          <span class="l">运行次数</span>
+          <span class="v">${stats.total_runs || 0}</span>
         </div>
         <div class="info-row">
-          <span class="l">地址</span>
-          <span class="v" style="font-size:9px;word-break:break-all">:${inst.port}</span>
+          <span class="l">收益</span>
+          <span class="v ok">$${(stats.total_revenue || 0).toFixed(2)}</span>
+        </div>
+        <div class="info-row">
+          <span class="l">点击率</span>
+          <span class="v">${(stats.click_rate || 0)}%</span>
         </div>
         
         <div class="progress-bar">
-          <div class="progress-fill" style="width:${inst.running ? '100%' : '0%'}"></div>
+          <div class="progress-fill" style="width:${inst.online ? (inst.running ? '100%' : '50%') : '0%'}"></div>
         </div>
         
         <div class="card-actions">
-          <button class="btn-start" onclick="startInstance(${inst.id})" ${inst.running ? 'disabled' : ''}>
-            ▶ 启动
+          <button class="btn-sim" onclick="startSim(${inst.id})" ${inst.online && !inst.running ? '' : 'disabled'}>
+            ▶ 单次
           </button>
-          <button class="btn-stop" onclick="stopInstance(${inst.id})" ${inst.running ? '' : 'disabled'}>
+          <button class="btn-auto" onclick="startAuto(${inst.id})" ${inst.online && !inst.running ? '' : 'disabled'}>
+            🔄 循环
+          </button>
+          <button class="btn-stop" onclick="stopSim(${inst.id})" ${inst.online && inst.running ? '' : 'disabled'}>
             ⏹ 停止
           </button>
-          <button class="btn-view" onclick="openInstance(${inst.id})" ${inst.running ? '' : 'disabled'}>
+          <button class="btn-view" onclick="openInstance(${inst.id})" ${inst.online ? '' : 'disabled'}>
             👁 查看
           </button>
         </div>
@@ -291,70 +388,93 @@ function renderInstances() {
 }
 
 function updateStats() {
-  const running = instances.filter(i => i.running).length;
-  const stopped = instances.filter(i => !i.running).length;
+  const online = instances.filter(i => i.online).length;
+  const offline = instances.filter(i => !i.online).length;
   
-  document.getElementById('totalCount').textContent = instances.length;
-  document.getElementById('runningCount').textContent = running;
-  document.getElementById('stoppedCount').textContent = stopped;
+  document.getElementById('totalCount').textContent = MAX_INSTANCES;
+  document.getElementById('onlineCount').textContent = online;
+  document.getElementById('offlineCount').textContent = offline;
 }
 
-async function startInstance(id) {
+async function callInstanceApi(id, endpoint, method = 'POST') {
+  const inst = instances.find(i => i.id === id);
+  if (!inst || !inst.online) {
+    showToast('error', `实例 ${id} 离线`);
+    return null;
+  }
+  
   try {
-    const r = await fetch(`/api/instances/${id}/start`, { method: 'POST' });
-    const d = await r.json();
-    if (d.error) {
-      showToast('error', `实例 ${id} 启动失败: ${d.error}`);
-    } else {
-      showToast('success', `实例 ${id} 启动成功`);
-      setTimeout(loadInstances, 2000);
-    }
+    const r = await fetch(`http://${SERVER_IP}:${inst.port}${endpoint}`, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: method === 'POST' ? JSON.stringify({}) : undefined
+    });
+    return await r.json();
   } catch(e) {
-    showToast('error', `启动失败: ${e.message}`);
+    showToast('error', `调用失败: ${e.message}`);
+    return null;
   }
 }
 
-async function stopInstance(id) {
-  try {
-    const r = await fetch(`/api/instances/${id}/stop`, { method: 'POST' });
-    const d = await r.json();
-    if (d.error) {
-      showToast('error', `实例 ${id} 停止失败: ${d.error}`);
-    } else {
-      showToast('success', `实例 ${id} 已停止`);
-      setTimeout(loadInstances, 1000);
-    }
-  } catch(e) {
-    showToast('error', `停止失败: ${e.message}`);
+async function startSim(id) {
+  const result = await callInstanceApi(id, '/api/simulate');
+  if (result && !result.error) {
+    showToast('success', `实例 ${id} 开始单次模拟`);
+    setTimeout(loadInstances, 1000);
   }
 }
 
-async function startAll() {
-  try {
-    const r = await fetch('/api/instances/all/start', { method: 'POST' });
-    const d = await r.json();
-    showToast('info', `正在启动 ${d.count} 个实例...`);
-    setTimeout(loadInstances, 5000);
-  } catch(e) {
-    showToast('error', `启动失败: ${e.message}`);
+async function startAuto(id) {
+  const result = await callInstanceApi(id, '/api/auto-start');
+  if (result && !result.error) {
+    showToast('success', `实例 ${id} 开始自动循环`);
+    setTimeout(loadInstances, 1000);
   }
 }
 
-async function stopAll() {
-  if (!confirm('确定要停止所有实例吗？')) return;
-  try {
-    const r = await fetch('/api/instances/all/stop', { method: 'POST' });
-    const d = await r.json();
-    showToast('success', '所有实例已停止');
-    setTimeout(loadInstances, 2000);
-  } catch(e) {
-    showToast('error', `停止失败: ${e.message}`);
+async function stopSim(id) {
+  const result = await callInstanceApi(id, '/api/stop');
+  if (result && !result.error) {
+    showToast('success', `实例 ${id} 已停止`);
+    setTimeout(loadInstances, 1000);
   }
+}
+
+async function startAllAuto() {
+  const onlineInstances = instances.filter(i => i.online && !i.running);
+  if (onlineInstances.length === 0) {
+    showToast('info', '没有可启动的在线实例');
+    return;
+  }
+  
+  showToast('info', `正在启动 ${onlineInstances.length} 个实例...`);
+  
+  for (const inst of onlineInstances) {
+    await callInstanceApi(inst.id, '/api/auto-start');
+    await new Promise(r => setTimeout(r, 500));
+  }
+  
+  showToast('success', '全部实例已开始自动循环');
+  setTimeout(loadInstances, 2000);
+}
+
+async function stopAllSim() {
+  if (!confirm('确定要停止所有运行中的实例吗？')) return;
+  
+  const runningInstances = instances.filter(i => i.online && i.running);
+  
+  for (const inst of runningInstances) {
+    await callInstanceApi(inst.id, '/api/auto-stop');
+    await new Promise(r => setTimeout(r, 300));
+  }
+  
+  showToast('success', '所有实例已停止');
+  setTimeout(loadInstances, 1000);
 }
 
 function openInstance(id) {
   const inst = instances.find(i => i.id === id);
-  if (inst && inst.running) {
+  if (inst && inst.online) {
     window.open(inst.url, '_blank');
   }
 }
@@ -372,7 +492,7 @@ function showToast(type, msg) {
 
 function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(loadInstances, 5000);
+  pollTimer = setInterval(loadInstances, 8000);
 }
 
 loadInstances();
