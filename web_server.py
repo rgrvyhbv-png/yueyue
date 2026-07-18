@@ -1181,21 +1181,36 @@ def api_instance_start(instance_id):
         return jsonify({"error": "Invalid instance ID"}), 400
     
     port = INSTANCES_CONFIG["base_port"] + instance_id - 1
+    pid_file = f"pids/roiify_{port}.pid"
     
     try:
         import subprocess
-        result = subprocess.run(
+        import os
+        
+        os.makedirs("pids", exist_ok=True)
+        
+        process = subprocess.Popen(
             ["python", "web_server.py", "--port", str(port)],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=10
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE,
+            cwd=os.path.dirname(os.path.abspath(__file__))
         )
-        return jsonify({"started": True, "instance_id": instance_id, "port": port})
-    except subprocess.CalledProcessError as e:
-        return jsonify({"error": f"Failed to start: {e.stderr}"}), 500
-    except subprocess.TimeoutExpired:
-        return jsonify({"started": True, "instance_id": instance_id, "port": port})
+        
+        with open(pid_file, 'w') as f:
+            f.write(str(process.pid))
+        
+        import time
+        time.sleep(2)
+        
+        if process.poll() is None:
+            return jsonify({"started": True, "instance_id": instance_id, "port": port, "pid": process.pid})
+        else:
+            stderr = process.stderr.read().decode('utf-8', errors='ignore')
+            os.remove(pid_file)
+            return jsonify({"error": f"Process exited: {stderr}"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/instances/<int:instance_id>/stop", methods=["POST"])
@@ -1207,14 +1222,18 @@ def api_instance_stop(instance_id):
     pid_file = f"pids/roiify_{port}.pid"
     
     try:
+        import subprocess
+        
         if os.path.exists(pid_file):
             with open(pid_file, 'r') as f:
                 pid = int(f.read().strip())
-            import subprocess
+            
             subprocess.run(['kill', str(pid)], capture_output=True)
             time.sleep(1)
             subprocess.run(['kill', '-9', str(pid)], capture_output=True)
-            os.remove(pid_file)
+            
+            if os.path.exists(pid_file):
+                os.remove(pid_file)
         
         subprocess.run(['pkill', '-f', f'python web_server.py --port {port}'], capture_output=True)
         return jsonify({"stopped": True, "instance_id": instance_id, "port": port})
@@ -1225,17 +1244,38 @@ def api_instance_stop(instance_id):
 @app.route("/api/instances/all/start", methods=["POST"])
 def api_instances_all_start():
     import subprocess
+    import os
+    import time
+    
+    os.makedirs("pids", exist_ok=True)
+    success_count = 0
+    
     for i in range(1, INSTANCES_CONFIG["max_instances"] + 1):
         port = INSTANCES_CONFIG["base_port"] + i - 1
+        pid_file = f"pids/roiify_{port}.pid"
+        
         try:
-            subprocess.Popen(
+            process = subprocess.Popen(
                 ["python", "web_server.py", "--port", str(port)],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                cwd=os.path.dirname(os.path.abspath(__file__))
             )
+            
+            with open(pid_file, 'w') as f:
+                f.write(str(process.pid))
+            
+            time.sleep(0.5)
+            
+            if process.poll() is None:
+                success_count += 1
+            else:
+                os.remove(pid_file)
         except:
             pass
-    return jsonify({"started": True, "count": INSTANCES_CONFIG["max_instances"]})
+    
+    return jsonify({"started": True, "count": INSTANCES_CONFIG["max_instances"], "success": success_count})
 
 
 @app.route("/api/instances/all/stop", methods=["POST"])
