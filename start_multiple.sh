@@ -5,7 +5,8 @@ VENV_DIR="$BASE_DIR/venv"
 LOG_DIR="$BASE_DIR/logs"
 PID_DIR="$BASE_DIR/pids"
 SERVER_IP="178.236.47.224"
-PORT=8765
+BASE_PORT=8765
+NUM_INSTANCES=8
 
 PYTHON_BIN="$VENV_DIR/bin/python3"
 
@@ -20,27 +21,38 @@ $PYTHON_BIN -m pip install -r "$BASE_DIR/requirements.txt" -q
 mkdir -p "$LOG_DIR"
 mkdir -p "$PID_DIR"
 
-stop_server() {
-    echo "[STOP] 停止服务..."
-    pkill -f "python3 multi_sim_server.py" 2>/dev/null
+if ! grep -q "swapfile" /proc/swaps 2>/dev/null; then
+    echo "[SWAP] 创建2GB交换空间..."
+    fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1G count=2
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo "[SWAP] 交换空间已启用"
+fi
+
+stop_all() {
+    echo "[STOP] 停止所有实例..."
     pkill -f "python3 web_server.py" 2>/dev/null
+    pkill -f "python3 multi_sim_server.py" 2>/dev/null
     sleep 3
     rm -f "$PID_DIR"/*.pid
-    echo "[STOP] 服务已停止"
+    echo "[STOP] 所有实例已停止"
 }
 
-start_server() {
-    local log_file="$LOG_DIR/multi_sim_$(date +%Y%m%d).log"
-    local pid_file="$PID_DIR/multi_sim.pid"
+start_instance() {
+    local index=$1
+    local port=$((BASE_PORT + index - 1))
+    local log_file="$LOG_DIR/roiify_${port}_$(date +%Y%m%d).log"
+    local pid_file="$PID_DIR/roiify_${port}.pid"
     
-    echo "[START] 启动多线程服务器..."
-    nohup $PYTHON_BIN multi_sim_server.py --port $PORT >> "$log_file" 2>&1 &
+    echo "[START] 启动实例 $index (端口: $port)..."
+    nohup $PYTHON_BIN web_server.py --port $port >> "$log_file" 2>&1 &
     local pid=$!
     
     echo $pid > "$pid_file"
     
     local waited=0
-    local max_wait=20
+    local max_wait=15
     local port_ready=0
     
     while [ $waited -lt $max_wait ]; do
@@ -48,7 +60,7 @@ start_server() {
         waited=$((waited + 1))
         
         if kill -0 $pid 2>/dev/null; then
-            if netstat -tlnp 2>/dev/null | grep -q ":$PORT "; then
+            if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
                 port_ready=1
                 break
             fi
@@ -58,32 +70,40 @@ start_server() {
     done
     
     if [ $port_ready -eq 1 ]; then
-        echo "[OK] 服务器启动成功，PID: $pid，端口: $PORT"
-        return 0
-    elif kill -0 $pid 2>/dev/null; then
-        echo "[WARN] 进程运行中但端口未监听"
-        echo "[DEBUG] 查看日志: tail -30 $log_file"
+        echo "[OK] 实例 $index 启动成功，PID: $pid"
         return 0
     else
-        echo "[FAIL] 服务器启动失败"
+        echo "[FAIL] 实例 $index 启动失败"
         echo "[DEBUG] 查看日志: tail -30 $log_file"
         rm -f "$pid_file"
         return 1
     fi
 }
 
-stop_server
-start_server
+stop_all
+
+success_count=0
+for i in $(seq 1 $NUM_INSTANCES); do
+    start_instance $i
+    if [ $? -eq 0 ]; then
+        success_count=$((success_count + 1))
+    fi
+    sleep 3
+done
 
 echo ""
 echo "=============================="
 echo "启动完成！"
 echo "=============================="
-echo "模式: 单进程多线程 (10个工作线程)"
+echo "总实例数: $NUM_INSTANCES"
+echo "成功启动: $success_count"
 echo ""
 echo "访问地址:"
-echo "  - 主界面: http://${SERVER_IP}:${PORT}"
-echo "  - 控制面板: http://${SERVER_IP}:${PORT}/control.html"
+for i in $(seq 1 $success_count); do
+    PORT=$((BASE_PORT + i - 1))
+    echo "  - 实例$i: http://${SERVER_IP}:${PORT}"
+done
+echo "  - 控制面板: http://${SERVER_IP}:${BASE_PORT}/control.html"
 echo ""
 echo "日志目录: $LOG_DIR"
 echo "PID目录: $PID_DIR"
