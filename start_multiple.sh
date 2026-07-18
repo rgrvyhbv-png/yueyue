@@ -8,8 +8,6 @@ SERVER_IP="178.236.47.224"
 BASE_PORT=8765
 
 NUM_INSTANCES=${1:-10}
-MAX_MEMORY=1500
-MAX_CPU=70
 
 if [ ! -d "$VENV_DIR" ]; then
     echo "[INIT] 创建虚拟环境..."
@@ -27,22 +25,10 @@ mkdir -p "$PID_DIR"
 
 stop_all() {
     echo "[STOP] 停止所有实例..."
-    pkill -f "python web_server.py" 2>/dev/null
+    pkill -f "python3 web_server.py" 2>/dev/null
     sleep 3
     rm -f "$PID_DIR"/*.pid
     echo "[STOP] 所有实例已停止"
-}
-
-check_memory() {
-    local used=$(free -m | grep Mem | awk '{print $3}')
-    local total=$(free -m | grep Mem | awk '{print $2}')
-    local percent=$((used * 100 / total))
-    echo $percent
-}
-
-check_cpu() {
-    local cpu=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
-    printf "%.0f" $cpu
 }
 
 start_instance() {
@@ -51,25 +37,12 @@ start_instance() {
     local log_file="$LOG_DIR/roiify_${port}_$(date +%Y%m%d).log"
     local pid_file="$PID_DIR/roiify_${port}.pid"
     
-    local mem_usage=$(check_memory)
-    local cpu_usage=$(check_cpu)
-    
-    if [ "$mem_usage" -gt "$MAX_MEMORY" ]; then
-        echo "[WARN] 内存占用过高 ($mem_usage MB > $MAX_MEMORY MB)，跳过启动实例 $index"
-        return 1
-    fi
-    
-    if [ "$cpu_usage" -gt "$MAX_CPU" ]; then
-        echo "[WARN] CPU占用过高 ($cpu_usage% > $MAX_CPU%)，跳过启动实例 $index"
-        return 1
-    fi
-    
     echo "[START] 启动实例 $index (端口: $port)..."
     nohup python3 web_server.py --port $port >> "$log_file" 2>&1 &
     local pid=$!
     
     echo $pid > "$pid_file"
-    sleep 2
+    sleep 3
     
     if kill -0 $pid 2>/dev/null; then
         echo "[OK] 实例 $index 启动成功，PID: $pid"
@@ -89,7 +62,7 @@ for i in $(seq 1 $NUM_INSTANCES); do
     if [ $? -eq 0 ]; then
         success_count=$((success_count + 1))
     fi
-    sleep 1
+    sleep 2
 done
 
 echo ""
@@ -105,6 +78,7 @@ for i in $(seq 1 $success_count); do
     PORT=$((BASE_PORT + i - 1))
     echo "  - http://${SERVER_IP}:${PORT}"
 done
+echo "  - 控制面板: http://${SERVER_IP}:${BASE_PORT}/control.html"
 echo ""
 echo "日志目录: $LOG_DIR"
 echo "PID目录: $PID_DIR"
