@@ -298,6 +298,83 @@ class RoiifyWebSDK:
         ]
         base_domain = random.choice(content_domains)
         
+        page_title = random.choice(page_titles)
+        page_url = f"{base_domain}/{keyword_group}/{title_keyword.lower().replace(' ', '-')}"
+        
+        content_descriptions = {
+            "saas_enterprise": [
+                "Enterprise SaaS solutions for businesses. Compare top CRM, ERP, and collaboration tools.",
+                "Best enterprise software for productivity and workflow management.",
+                "Enterprise-grade SaaS platforms for digital transformation.",
+            ],
+            "finance_mortgage": [
+                "Mortgage rates and refinancing options. Find the best home loan deals.",
+                "Guide to mortgage loans, refinancing, and home financing.",
+                "Compare mortgage rates from top lenders and banks.",
+            ],
+            "finance_investing_stocks": [
+                "Stock market investing strategies and tips for beginners.",
+                "Investment analysis software and tools for traders.",
+                "Best stock trading platforms and brokerage accounts.",
+            ],
+            "finance_crypto_trading": [
+                "Cryptocurrency trading platforms and exchange reviews.",
+                "Bitcoin and altcoin trading strategies for investors.",
+                "Best crypto wallets and trading apps.",
+            ],
+            "finance_insurance_life": [
+                "Life insurance quotes and policy comparisons.",
+                "Best life insurance companies and coverage options.",
+                "Term vs whole life insurance guide.",
+            ],
+            "finance_personal_loans": [
+                "Personal loan options for all credit types.",
+                "Compare personal loans and find the best rates.",
+                "Fast cash loans for emergencies.",
+            ],
+            "finance_credit_cards_premium": [
+                "Premium credit cards with exclusive benefits.",
+                "Best travel rewards credit cards.",
+                "Luxury credit cards with high limits.",
+            ],
+            "finance_debt_consolidation": [
+                "Debt consolidation loans and services.",
+                "How to consolidate credit card debt.",
+                "Best debt relief options.",
+            ],
+            "software_subscription": [
+                "Best SaaS subscription services for businesses.",
+                "Productivity software and cloud tools.",
+                "Subscription-based software reviews.",
+            ],
+            "ecommerce_high_ticket": [
+                "Luxury goods and high-end products online.",
+                "Premium electronics and designer fashion.",
+                "High ticket item shopping guide.",
+            ],
+        }
+        
+        content_tags = {
+            "saas_enterprise": ["SaaS", "enterprise", "business", "productivity", "CRM", "ERP"],
+            "finance_mortgage": ["mortgage", "home loan", "refinance", "real estate", "housing"],
+            "finance_investing_stocks": ["stocks", "investing", "trading", "stock market", "investment"],
+            "finance_crypto_trading": ["cryptocurrency", "bitcoin", "crypto", "trading", "blockchain"],
+            "finance_insurance_life": ["life insurance", "insurance", "coverage", "policy", "protection"],
+            "finance_personal_loans": ["personal loan", "loans", "credit", "debt", "borrow"],
+            "finance_credit_cards_premium": ["credit card", "premium", "rewards", "travel", "luxury"],
+            "finance_debt_consolidation": ["debt consolidation", "debt", "credit", "finance", "consolidate"],
+            "software_subscription": ["software", "subscription", "SaaS", "cloud", "productivity"],
+            "ecommerce_high_ticket": ["luxury", "premium", "high-end", "designer", "electronics"],
+        }
+        
+        content_description = random.choice(content_descriptions.get(category["id"], content_descriptions["software_subscription"]))
+        content_tag_list = content_tags.get(category["id"], content_tags["software_subscription"])
+        
+        user_interests = [
+            "business", "finance", "technology", "investing", "personal finance",
+            "entrepreneurship", "stocks", "real estate", "luxury", "travel"
+        ]
+        
         payload = {
             "placementId": placement_id,
             "format": ad_format,
@@ -308,11 +385,26 @@ class RoiifyWebSDK:
             "sdkVersion": config.SDK_VERSION,
             "category": category["id"],
             "categoryName": category["name"],
-            "pageTitle": random.choice(page_titles),
+            "pageTitle": page_title,
             "pageKeywords": ",".join(meta_keywords),
             "contentTopic": category["category"],
             "pageType": "article",
-            "pageUrl": f"{base_domain}/{keyword_group}/{title_keyword.lower().replace(' ', '-')}",
+            "pageUrl": page_url,
+            "contentDescription": content_description,
+            "contentTags": ",".join(content_tag_list),
+            "userInterests": ",".join(random.sample(user_interests, 3)),
+            "contentLength": random.randint(500, 2000),
+            "contentQuality": random.uniform(0.7, 0.98),
+            "pageRank": random.randint(1, 10),
+            "domainAuthority": random.randint(20, 80),
+            "trafficQualityScore": random.uniform(0.75, 0.95),
+            "userEngagementScore": random.uniform(0.6, 0.9),
+            "pageViews": random.randint(1000, 50000),
+            "avgTimeOnPage": random.randint(30, 300),
+            "bounceRate": random.uniform(0.2, 0.5),
+            "mobileOptimized": True,
+            "sslEnabled": True,
+            "pageAge": random.randint(30, 365),
         }
         # 添加设备信息
         dev = self.device_info

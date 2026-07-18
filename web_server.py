@@ -954,18 +954,6 @@ a{color:#0066cc;text-decoration:underline;}</style></head>
 </body></html>"""
 
 
-@app.route("/adsgram")
-def adsgram_page():
-    import os
-    html_path = os.path.join(os.path.dirname(__file__), 'web', 'adsgram.html')
-    with open(html_path, 'r', encoding='utf-8') as f:
-        html_content = f.read()
-    resp = app.make_response(html_content)
-    resp.headers["Content-Type"] = "text/html; charset=utf-8"
-    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    return resp
-
-
 @app.route("/api/device")
 def api_device():
     plat = request.args.get("platform", "auto")
@@ -1266,6 +1254,19 @@ def auto_loop_thread():
             if state.should_stop():
                 state.log("═══ 自动化循环已停止 ═══")
                 break
+
+            session_depth = _rnd.random()
+            session_depth_label = "首次访问" if session_depth < 0.3 else "回访用户" if session_depth < 0.7 else "深度用户"
+            page_views_in_session = _rnd.randint(1, 8)
+            avg_scroll_depth = _rnd.uniform(30, 90)
+            time_on_page = _rnd.uniform(5, 60)
+            
+            state.log(f"  会话状态: {session_depth_label}")
+            state.log(f"  本次会话页面数: {page_views_in_session}")
+            state.log(f"  平均滚动深度: {avg_scroll_depth:.0f}%")
+            state.log(f"  页面停留时间: {time_on_page:.0f}秒")
+
+            time.sleep(_rnd.uniform(2, 5))
 
             state.set_phase(2)
             state.log("─ Phase 2: 请求广告 ─")
