@@ -1148,7 +1148,6 @@ INSTANCES_CONFIG = {
 
 @app.route("/api/instances", methods=["GET"])
 def api_instances():
-    import subprocess
     instances = []
     for i in range(1, INSTANCES_CONFIG["max_instances"] + 1):
         port = INSTANCES_CONFIG["base_port"] + i - 1
@@ -1160,8 +1159,18 @@ def api_instances():
             try:
                 with open(pid_file, 'r') as f:
                     pid = int(f.read().strip())
-                subprocess.run(['kill', '-0', str(pid)], check=True, capture_output=True)
-                running = True
+                
+                try:
+                    import subprocess
+                    result = subprocess.run(['kill', '-0', str(pid)], capture_output=True, timeout=2)
+                    if result.returncode == 0:
+                        running = True
+                    else:
+                        os.remove(pid_file)
+                        pid = None
+                except:
+                    os.remove(pid_file)
+                    pid = None
             except:
                 pid = None
         
