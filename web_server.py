@@ -1199,7 +1199,7 @@ def api_instance_start(instance_id):
         os.makedirs("pids", exist_ok=True)
         
         process = subprocess.Popen(
-            ["python", "web_server.py", "--port", str(port)],
+            ["python3", "web_server.py", "--port", str(port)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             stdin=subprocess.PIPE,
@@ -1265,7 +1265,7 @@ def api_instances_all_start():
         
         try:
             process = subprocess.Popen(
-                ["python", "web_server.py", "--port", str(port)],
+                ["python3", "web_server.py", "--port", str(port)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,

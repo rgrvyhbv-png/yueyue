@@ -65,7 +65,7 @@ start_instance() {
     fi
     
     echo "[START] 启动实例 $index (端口: $port)..."
-    nohup python web_server.py --port $port >> "$log_file" 2>&1 &
+    nohup python3 web_server.py --port $port >> "$log_file" 2>&1 &
     local pid=$!
     
     echo $pid > "$pid_file"
