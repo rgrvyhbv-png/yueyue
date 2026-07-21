@@ -573,13 +573,31 @@ class DeviceFingerprintGenerator:
             "carriers": [(generic_carrier, f"Carrier {cc}", f"Carrier {cc}")],
         }
 
+    GEO_TIER_WEIGHTS = {
+        "US": 8.0, "CA": 3.5, "GB": 3.0, "AU": 2.5, "NZ": 1.2,
+        "DE": 1.8, "FR": 1.5, "NL": 1.2, "SE": 1.0, "CH": 1.5,
+        "NO": 1.0, "DK": 0.9, "FI": 0.8, "IE": 1.0, "AT": 0.9,
+        "BE": 0.8, "LU": 0.5, "SG": 1.8, "JP": 1.5, "KR": 1.0,
+        "HK": 1.0, "TW": 0.8, "AE": 1.2, "SA": 0.8, "IL": 1.0,
+        "IT": 1.0, "ES": 0.9, "PT": 0.7, "PL": 0.5, "CZ": 0.4,
+        "HU": 0.3, "RO": 0.3, "GR": 0.4, "RU": 0.6, "TR": 0.5,
+        "UA": 0.3, "CN": 0.5, "IN": 0.6, "ID": 0.3, "TH": 0.3,
+        "VN": 0.3, "PH": 0.3, "MY": 0.3, "MX": 0.4, "BR": 0.5,
+        "AR": 0.2, "CO": 0.2, "CL": 0.2, "PE": 0.2,
+        "ZA": 0.3, "NG": 0.2, "EG": 0.2, "PK": 0.2, "BD": 0.1,
+    }
+
+    def _get_locale_weight(self, cfg):
+        return self.GEO_TIER_WEIGHTS.get(cfg["country"], 0.3)
+
     def _get_locale_config(self):
         if self.forced_country:
             for cfg in self.LOCALE_CONFIGS:
                 if cfg["country"] == self.forced_country:
                     return cfg
             return self._build_locale_config(self.forced_country)
-        return random.choice(self.LOCALE_CONFIGS)
+        weights = [self._get_locale_weight(cfg) for cfg in self.LOCALE_CONFIGS]
+        return random.choices(self.LOCALE_CONFIGS, weights=weights, k=1)[0]
 
     def generate(self) -> DeviceInfo:
         if self._cached_fingerprint is not None:

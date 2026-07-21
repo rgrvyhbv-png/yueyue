@@ -59,6 +59,15 @@ class RoiifyWebSDK:
             "Growth stocks", "Value investing strategies",
             "Stock market research", "Investment analysis software"
         ],
+        "insurance_health": [
+            "Health insurance plans", "Best health insurance companies",
+            "Affordable health insurance", "Individual health insurance",
+            "Family health insurance", "Group health insurance",
+            "Health insurance quotes", "Medical insurance coverage",
+            "Health insurance marketplace", "Obamacare health plans",
+            "Short term health insurance", "Dental and vision insurance",
+            "Health savings account", "Health insurance deductibles"
+        ],
         "crypto_trading": [
             "Cryptocurrency trading", "Bitcoin trading platform",
             "Crypto exchange comparison", "Digital currency trading",
@@ -95,6 +104,32 @@ class RoiifyWebSDK:
             "Elite credit cards", "Premium credit card lounge access",
             "VIP credit cards", "Premium credit card perks"
         ],
+        "b2b_software": [
+            "B2B software solutions", "Enterprise software for business",
+            "Business software tools", "B2B SaaS platforms",
+            "Sales automation software", "Marketing automation tools",
+            "Customer relationship management", "Supply chain management",
+            "B2B ecommerce platforms", "Business intelligence software",
+            "Data analytics tools", "Enterprise project management",
+            "B2B integration software", "Business process automation"
+        ],
+        "legal_services": [
+            "Legal services online", "Personal injury lawyer",
+            "Best law firms", "Criminal defense attorney",
+            "Family law services", "Business legal services",
+            "Immigration lawyer", "Estate planning attorney",
+            "Legal consultation", "Lawyer referral service",
+            "Accident attorney", "Workers compensation lawyer",
+            "Bankruptcy attorney", "Divorce lawyer"
+        ],
+        "real_estate_investing": [
+            "Real estate investing", "Rental property investment",
+            "Real estate crowdfunding", "Property investment strategies",
+            "Commercial real estate", "Residential property investment",
+            "Real estate REIT investments", "House flipping guide",
+            "Real estate investment trust", "Property management tips",
+            "Real estate market analysis", "Investment property loans"
+        ],
         "debt_consolidation": [
             "Debt consolidation loans", "Debt consolidation services",
             "Best debt consolidation companies", "Credit card debt consolidation",
@@ -120,6 +155,15 @@ class RoiifyWebSDK:
             "Premium appliances", "High end audio equipment",
             "Designer clothing", "Luxury travel", "Premium home goods",
             "High end fashion", "Luxury accessories"
+        ],
+        "education_professional": [
+            "Professional certification programs", "Online business courses",
+            "Executive education programs", "Professional development courses",
+            "MBA programs online", "Project management certification",
+            "Digital marketing courses", "Coding bootcamp online",
+            "Professional training programs", "Continuing education online",
+            "Career advancement courses", "Industry certification training",
+            "Business management courses", "Leadership development programs"
         ]
     }
     
@@ -127,13 +171,18 @@ class RoiifyWebSDK:
         {"id": "saas_enterprise", "name": "Enterprise SaaS", "category": "Business"},
         {"id": "finance_mortgage", "name": "Mortgage", "category": "Finance"},
         {"id": "finance_investing_stocks", "name": "Stock Investing", "category": "Finance"},
-        {"id": "finance_crypto_trading", "name": "Crypto Trading", "category": "Finance"},
+        {"id": "finance_insurance_health", "name": "Health Insurance", "category": "Finance"},
         {"id": "finance_insurance_life", "name": "Life Insurance", "category": "Finance"},
+        {"id": "finance_crypto_trading", "name": "Crypto Trading", "category": "Finance"},
         {"id": "finance_personal_loans", "name": "Personal Loans", "category": "Finance"},
         {"id": "finance_credit_cards_premium", "name": "Premium Credit Cards", "category": "Finance"},
+        {"id": "b2b_software", "name": "B2B Software", "category": "Business"},
+        {"id": "legal_services", "name": "Legal Services", "category": "Legal"},
+        {"id": "real_estate_investing", "name": "Real Estate Investing", "category": "Real Estate"},
         {"id": "finance_debt_consolidation", "name": "Debt Consolidation", "category": "Finance"},
         {"id": "software_subscription", "name": "Software Subscription", "category": "Business"},
         {"id": "ecommerce_high_ticket", "name": "High Ticket E-commerce", "category": "Retail"},
+        {"id": "education_professional", "name": "Professional Education", "category": "Education"},
     ]
 
     def __init__(
@@ -245,16 +294,21 @@ class RoiifyWebSDK:
         url = f"{self.api_origin}/ad/request"
         
         category_weights = [
-            3.0,  # saas_enterprise
-            2.5,  # finance_mortgage
-            2.0,  # finance_investing_stocks
-            1.8,  # finance_crypto_trading
-            1.5,  # finance_insurance_life
-            1.2,  # finance_personal_loans
-            1.0,  # finance_credit_cards_premium
-            0.8,  # finance_debt_consolidation
-            0.6,  # software_subscription
-            0.5,  # ecommerce_high_ticket
+            4.0,  # saas_enterprise (highest value)
+            3.5,  # finance_mortgage
+            3.0,  # finance_investing_stocks
+            2.8,  # finance_insurance_health (high value)
+            2.5,  # finance_insurance_life
+            2.2,  # finance_crypto_trading
+            1.8,  # finance_personal_loans
+            1.5,  # finance_credit_cards_premium
+            1.5,  # b2b_software
+            1.3,  # legal_services (high value)
+            1.2,  # real_estate_investing
+            1.0,  # finance_debt_consolidation
+            0.8,  # software_subscription
+            0.6,  # ecommerce_high_ticket
+            0.5,  # education_professional
         ]
         category = random.choices(self.AD_CATEGORIES, weights=category_weights, k=1)[0]
         
@@ -262,13 +316,18 @@ class RoiifyWebSDK:
             "saas_enterprise": "saas_enterprise",
             "finance_mortgage": "mortgage",
             "finance_investing_stocks": "investing_stocks",
+            "finance_insurance_health": "insurance_health",
             "finance_crypto_trading": "crypto_trading",
             "finance_insurance_life": "insurance_life",
             "finance_personal_loans": "personal_loans",
             "finance_credit_cards_premium": "credit_cards_premium",
+            "b2b_software": "b2b_software",
+            "legal_services": "legal_services",
+            "real_estate_investing": "real_estate_investing",
             "finance_debt_consolidation": "debt_consolidation",
             "software_subscription": "software_subscription",
             "ecommerce_high_ticket": "ecommerce_high_ticket",
+            "education_professional": "education_professional",
         }
         keyword_group = category_id_to_keyword.get(category["id"], "personal_loans")
         keywords = self.FINANCIAL_KEYWORDS.get(keyword_group, self.FINANCIAL_KEYWORDS["personal_loans"])
@@ -306,65 +365,110 @@ class RoiifyWebSDK:
                 "Enterprise SaaS solutions for businesses. Compare top CRM, ERP, and collaboration tools.",
                 "Best enterprise software for productivity and workflow management.",
                 "Enterprise-grade SaaS platforms for digital transformation.",
+                "Comprehensive reviews of enterprise software solutions and services.",
             ],
             "finance_mortgage": [
                 "Mortgage rates and refinancing options. Find the best home loan deals.",
                 "Guide to mortgage loans, refinancing, and home financing.",
                 "Compare mortgage rates from top lenders and banks.",
+                "Expert advice on home loans and mortgage refinancing.",
             ],
             "finance_investing_stocks": [
                 "Stock market investing strategies and tips for beginners.",
                 "Investment analysis software and tools for traders.",
                 "Best stock trading platforms and brokerage accounts.",
+                "Professional stock market research and investment guidance.",
+            ],
+            "finance_insurance_health": [
+                "Health insurance plans and coverage options for individuals and families.",
+                "Compare health insurance quotes from top providers.",
+                "Affordable health insurance solutions for every budget.",
+                "Complete guide to health insurance and medical coverage.",
             ],
             "finance_crypto_trading": [
                 "Cryptocurrency trading platforms and exchange reviews.",
                 "Bitcoin and altcoin trading strategies for investors.",
                 "Best crypto wallets and trading apps.",
+                "Complete cryptocurrency investment guide for beginners.",
             ],
             "finance_insurance_life": [
                 "Life insurance quotes and policy comparisons.",
                 "Best life insurance companies and coverage options.",
                 "Term vs whole life insurance guide.",
+                "Protect your family with the right life insurance policy.",
             ],
             "finance_personal_loans": [
                 "Personal loan options for all credit types.",
                 "Compare personal loans and find the best rates.",
                 "Fast cash loans for emergencies.",
+                "Personal loan comparison and reviews.",
             ],
             "finance_credit_cards_premium": [
                 "Premium credit cards with exclusive benefits.",
                 "Best travel rewards credit cards.",
                 "Luxury credit cards with high limits.",
+                "Compare premium credit card offers and benefits.",
+            ],
+            "b2b_software": [
+                "B2B software solutions for modern businesses.",
+                "Best business software tools and platforms.",
+                "Enterprise software reviews and comparisons.",
+                "Boost productivity with top B2B software solutions.",
+            ],
+            "legal_services": [
+                "Legal services and attorney directory for all practice areas.",
+                "Find the best lawyer for your legal needs.",
+                "Expert legal advice and attorney referrals.",
+                "Compare law firms and legal service providers.",
+            ],
+            "real_estate_investing": [
+                "Real estate investing strategies and property investment guide.",
+                "Learn how to invest in rental properties and REITs.",
+                "Real estate crowdfunding platforms and opportunities.",
+                "Complete guide to real estate investment strategies.",
             ],
             "finance_debt_consolidation": [
                 "Debt consolidation loans and services.",
                 "How to consolidate credit card debt.",
                 "Best debt relief options.",
+                "Take control of your finances with debt consolidation.",
             ],
             "software_subscription": [
                 "Best SaaS subscription services for businesses.",
                 "Productivity software and cloud tools.",
                 "Subscription-based software reviews.",
+                "Top software subscriptions for professionals.",
             ],
             "ecommerce_high_ticket": [
                 "Luxury goods and high-end products online.",
                 "Premium electronics and designer fashion.",
                 "High ticket item shopping guide.",
+                "Exclusive deals on luxury products.",
+            ],
+            "education_professional": [
+                "Professional certification programs and career advancement courses.",
+                "Best online business courses and executive education.",
+                "Advance your career with professional training programs.",
+                "Industry-recognized certifications and online learning.",
             ],
         }
         
         content_tags = {
-            "saas_enterprise": ["SaaS", "enterprise", "business", "productivity", "CRM", "ERP"],
-            "finance_mortgage": ["mortgage", "home loan", "refinance", "real estate", "housing"],
-            "finance_investing_stocks": ["stocks", "investing", "trading", "stock market", "investment"],
-            "finance_crypto_trading": ["cryptocurrency", "bitcoin", "crypto", "trading", "blockchain"],
-            "finance_insurance_life": ["life insurance", "insurance", "coverage", "policy", "protection"],
-            "finance_personal_loans": ["personal loan", "loans", "credit", "debt", "borrow"],
-            "finance_credit_cards_premium": ["credit card", "premium", "rewards", "travel", "luxury"],
-            "finance_debt_consolidation": ["debt consolidation", "debt", "credit", "finance", "consolidate"],
-            "software_subscription": ["software", "subscription", "SaaS", "cloud", "productivity"],
-            "ecommerce_high_ticket": ["luxury", "premium", "high-end", "designer", "electronics"],
+            "saas_enterprise": ["SaaS", "enterprise", "business", "productivity", "CRM", "ERP", "B2B", "software"],
+            "finance_mortgage": ["mortgage", "home loan", "refinance", "real estate", "housing", "lending"],
+            "finance_investing_stocks": ["stocks", "investing", "trading", "stock market", "investment", "brokerage"],
+            "finance_insurance_health": ["health insurance", "insurance", "medical", "healthcare", "coverage", "wellness"],
+            "finance_crypto_trading": ["cryptocurrency", "bitcoin", "crypto", "trading", "blockchain", "exchange"],
+            "finance_insurance_life": ["life insurance", "insurance", "coverage", "policy", "protection", "family"],
+            "finance_personal_loans": ["personal loan", "loans", "credit", "debt", "borrow", "lending"],
+            "finance_credit_cards_premium": ["credit card", "premium", "rewards", "travel", "luxury", "exclusive"],
+            "b2b_software": ["B2B", "software", "enterprise", "business", "SaaS", "productivity"],
+            "legal_services": ["legal", "lawyer", "attorney", "law firm", "legal services", "consultation"],
+            "real_estate_investing": ["real estate", "investing", "property", "rental", "REIT", "investment"],
+            "finance_debt_consolidation": ["debt consolidation", "debt", "credit", "finance", "consolidate", "relief"],
+            "software_subscription": ["software", "subscription", "SaaS", "cloud", "productivity", "tools"],
+            "ecommerce_high_ticket": ["luxury", "premium", "high-end", "designer", "electronics", "shopping"],
+            "education_professional": ["education", "professional", "certification", "training", "career", "courses"],
         }
         
         content_description = random.choice(content_descriptions.get(category["id"], content_descriptions["software_subscription"]))
@@ -372,8 +476,25 @@ class RoiifyWebSDK:
         
         user_interests = [
             "business", "finance", "technology", "investing", "personal finance",
-            "entrepreneurship", "stocks", "real estate", "luxury", "travel"
+            "entrepreneurship", "stocks", "real estate", "luxury", "travel",
+            "marketing", "healthcare", "education", "fitness", "entrepreneur"
         ]
+        
+        traffic_source = random.choices(
+            ["organic", "direct", "referral", "social", "email", "paid_search"],
+            weights=[4.0, 3.0, 2.0, 1.5, 1.0, 0.5],
+            k=1
+        )[0]
+        
+        session_depth = random.choices(
+            [1, 2, 3, 4, 5, 6, 7, 8],
+            weights=[1.5, 2.5, 3.0, 2.5, 2.0, 1.5, 1.0, 0.5],
+            k=1
+        )[0]
+        
+        is_returning_visitor = random.random() < 0.65
+        
+        viewability_score = random.uniform(0.65, 0.95)
         
         payload = {
             "placementId": placement_id,
@@ -392,19 +513,34 @@ class RoiifyWebSDK:
             "pageUrl": page_url,
             "contentDescription": content_description,
             "contentTags": ",".join(content_tag_list),
-            "userInterests": ",".join(random.sample(user_interests, 3)),
-            "contentLength": random.randint(500, 2000),
-            "contentQuality": random.uniform(0.7, 0.98),
-            "pageRank": random.randint(1, 10),
-            "domainAuthority": random.randint(20, 80),
-            "trafficQualityScore": random.uniform(0.75, 0.95),
-            "userEngagementScore": random.uniform(0.6, 0.9),
-            "pageViews": random.randint(1000, 50000),
-            "avgTimeOnPage": random.randint(30, 300),
-            "bounceRate": random.uniform(0.2, 0.5),
+            "userInterests": ",".join(random.sample(user_interests, 5)),
+            "contentLength": random.randint(800, 3500),
+            "contentQuality": round(random.uniform(0.75, 0.98), 2),
+            "pageRank": random.randint(3, 10),
+            "domainAuthority": random.randint(40, 85),
+            "trafficQualityScore": round(random.uniform(0.82, 0.97), 2),
+            "userEngagementScore": round(random.uniform(0.7, 0.95), 2),
+            "pageViews": random.randint(5000, 100000),
+            "avgTimeOnPage": random.randint(45, 180),
+            "avgSessionDuration": random.randint(90, 420),
+            "bounceRate": round(random.uniform(0.25, 0.55), 2),
             "mobileOptimized": True,
             "sslEnabled": True,
-            "pageAge": random.randint(30, 365),
+            "pageAge": random.randint(60, 730),
+            "trafficSource": traffic_source,
+            "sessionDepth": session_depth,
+            "isReturningVisitor": is_returning_visitor,
+            "viewabilityScore": round(viewability_score, 2),
+            "scrollDepth": random.randint(35, 95),
+            "pagesPerSession": round(random.uniform(1.5, 4.5), 1),
+            "userIntent": random.choice(["informational", "commercial", "navigational"]),
+            "userAgeRange": random.choice(["18-24", "25-34", "35-44", "45-54", "55-64", "65+"]),
+            "userIncomeLevel": random.choices(
+                ["low", "medium", "high", "premium"],
+                weights=[1.0, 2.5, 3.5, 2.0],
+                k=1
+            )[0],
+            "deviceTrustScore": round(random.uniform(0.7, 0.95), 2),
         }
         # 添加设备信息
         dev = self.device_info
