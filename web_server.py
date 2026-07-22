@@ -57,10 +57,10 @@ class SimState:
             "provider": proxy.provider or "proxy001",
             "host": proxy.host,
             "port": proxy.port,
-            "username": proxy.username,
-            "password": proxy.password,
+            "username": proxy.username or "cqywpu596838_custom_zone_US",
+            "password": proxy.password or "pwd595247",
             "proxy_type": "http",
-            "country": "",
+            "country": "US",
             "api_key": "",
         }
         self.stats = {
@@ -1160,10 +1160,10 @@ def api_proxy_delete():
         "provider": "proxy001",
         "host": "",
         "port": 0,
-        "username": "",
-        "password": "",
+        "username": "cqywpu596838_custom_zone_US",
+        "password": "pwd595247",
         "proxy_type": "http",
-        "country": "",
+        "country": "US",
         "api_key": "",
     }
     apply_proxy_config()
