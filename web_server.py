@@ -253,6 +253,8 @@ def _try_proxy_connection(username_override=None, max_retries=3):
             
             state.log(f"  正在连接代理... (尝试 {attempt + 1}/{max_retries})")
             state.log(f"  代理配置: {proxy.host}:{proxy.port}")
+            state.log(f"  代理账号: {'有' if test_username else '无'}")
+            state.log(f"  代理URL: {proxies['http']}")
             
             session = requests.Session()
             retry_strategy = Retry(
