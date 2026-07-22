@@ -480,7 +480,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
     try:
         import random as _rnd
         
-        human_delay = _rnd.uniform(0.8, 2.5)
+        human_delay = _rnd.uniform(0.3, 0.8)
         state.log("═══ 开始模拟 ═══")
         system_display = {
             "auto": "自动",
@@ -707,7 +707,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         state.set_phase(4)
         state.log("─ Phase 4: 点击跳转 ─")
         
-        reaction_delay = _rnd.uniform(1.5, 4.0)
+        reaction_delay = _rnd.uniform(0.3, 1.0)
         state.log(f"  [模拟] 用户正在考虑是否点击... ({reaction_delay:.1f}秒)")
         time.sleep(reaction_delay)
         
@@ -1509,6 +1509,9 @@ def auto_loop_thread():
                     continue
             else:
                 target_country = "US"
+            
+            if target_country:
+                target_country = "US"
 
             state.set_phase(1)
             state.log("─ Phase 1: 生成设备指纹 ─")
@@ -1556,7 +1559,7 @@ def auto_loop_thread():
             state.log(f"  平均滚动深度: {avg_scroll_depth:.0f}%")
             state.log(f"  页面停留时间: {time_on_page:.0f}秒")
 
-            time.sleep(_rnd.uniform(2, 5))
+            time.sleep(_rnd.uniform(0.5, 1.5))
 
             state.set_phase(2)
             state.log("─ Phase 2: 请求广告 ─")
