@@ -45,9 +45,9 @@ class SimState:
         self.current_device_ios = None
         self.proxy_config = {
             "enabled": proxy.enabled,
-            "provider": "iproyal",
-            "host": "geo.iproyal.com",
-            "port": 12321,
+            "provider": proxy.provider or "iproyal",
+            "host": proxy.host or "geo.iproyal.com",
+            "port": proxy.port or 12321,
             "username": proxy.username,
             "password": proxy.password,
             "proxy_type": "http",
@@ -151,6 +151,7 @@ def load_proxy_config_from_file():
 _saved_proxy = load_proxy_config_from_file()
 if _saved_proxy:
     state.proxy_config.update(_saved_proxy)
+    apply_proxy_config()
 
 
 def generate_device(platform, device_age_days=300, country=None, exclude_models=None, max_attempts=30):
