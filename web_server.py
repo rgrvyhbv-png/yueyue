@@ -395,52 +395,21 @@ def apply_proxy_config():
     proxy.enabled = pc["enabled"]
     proxy_protocol = pc.get("proxy_type", "http").lower()
     
-    # 使用 proxy001 API 获取指定地区的代理IP
-    from config.proxy import fetch_proxy_from_api
-    
     country = pc.get("country", "US").upper()
-    api_key = pc.get("api_key", "")
     username = pc.get("username", "")
     password = pc.get("password", "")
     
-    # 如果有API Key，优先使用API获取指定地区的代理
-    if api_key:
-        proxy_data = fetch_proxy_from_api(
-            api_key=api_key,
-            num=1,
-            regions=country,
-            protocol=proxy_protocol,
-        )
-        if proxy_data and len(proxy_data) > 0:
-            proxy_info = proxy_data[0]
-            proxy.host = proxy_info.get("ip", proxy.host)
-            proxy.port = int(proxy_info.get("port", 7878))
-            if "username" in proxy_info:
-                proxy.username = proxy_info["username"]
-            if "password" in proxy_info:
-                proxy.password = proxy_info["password"]
-            if "country" in proxy_info:
-                proxy.country = proxy_info["country"]
-            state.log(f"  [API] 通过API获取代理: {proxy.host}:{proxy.port} 地区: {proxy.country}")
-        else:
-            # API获取失败，使用账号密码方式
-            proxy.host = f"{country.lower()}.proxy001.com" if country else "us.proxy001.com"
-            proxy.port = 7878
-            proxy.username = username
-            proxy.password = password
-            proxy.country = country
-            state.log(f"  [API] API获取失败，使用账号密码方式: {proxy.host}:{proxy.port}")
-    else:
-        # 无API Key，使用账号密码方式
-        proxy.host = f"{country.lower()}.proxy001.com" if country else "us.proxy001.com"
-        proxy.port = 7878
-        proxy.username = username
-        proxy.password = password
-        proxy.country = country
-    
+    # 使用账号密码方式连接 proxy001 网关
+    proxy.host = f"{country.lower()}.proxy001.com" if country else "us.proxy001.com"
+    proxy.port = 7878
+    proxy.username = username
+    proxy.password = password
+    proxy.country = country
     proxy.provider = "proxy001"
     proxy.proxy_type = proxy_protocol
-    proxy.api_key = api_key
+    proxy.api_key = ""
+    
+    state.log(f"  [代理] 使用账号密码方式: {proxy.host}:{proxy.port} 地区: {country}")
     
     save_proxy_config_to_file()
 
