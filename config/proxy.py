@@ -46,7 +46,7 @@ def fetch_proxy_from_api(api_key: str, num: int = 1, regions: str = "GLOBAL", pr
 class ProxyConfig:
     enabled: bool = False
     host: str = ""
-    port: int = 0
+    port: int = 8000
     username: str = ""
     password: str = ""
     proxy_type: str = "http"

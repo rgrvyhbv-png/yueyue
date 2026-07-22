@@ -389,7 +389,7 @@ def apply_proxy_config():
     proxy_protocol = pc.get("proxy_type", "http").lower()
     
     proxy.host = "us.proxy001.com"
-    proxy.port = 7878
+    proxy.port = 8000
     proxy.username = pc.get("username", "")
     proxy.password = pc.get("password", "")
     proxy.provider = "proxy001"
