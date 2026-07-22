@@ -18,7 +18,7 @@ from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
 from config import config, proxy
-from config.proxy import IPROYAL_CONFIG, PROXY001_CONFIG
+from browser.engine import BrowserConfig, init_browser_engine, browser_engine
 
 logging.basicConfig(level=logging.WARNING)
 server_logger = logging.getLogger("web_server")
@@ -43,16 +43,25 @@ class SimState:
         self.error = None
         self.current_device_android = None
         self.current_device_ios = None
+        self.target_impressions = 0
+        self.browser_config = {
+            "enabled": False,
+            "headless": True,
+            "browser_type": "chromium",
+            "viewport_width": 375,
+            "viewport_height": 812,
+            "page_timeout": 30,
+        }
         self.proxy_config = {
             "enabled": proxy.enabled,
-            "provider": proxy.provider or "iproyal",
-            "host": proxy.host or "geo.iproyal.com",
-            "port": proxy.port or 12321,
+            "provider": proxy.provider or "proxy001",
+            "host": proxy.host,
+            "port": proxy.port,
             "username": proxy.username,
             "password": proxy.password,
             "proxy_type": "http",
-            "proxy_plan": "residential",
             "country": "",
+            "api_key": "",
         }
         self.stats = {
             "total_runs": 0,
@@ -151,7 +160,6 @@ def load_proxy_config_from_file():
 _saved_proxy = load_proxy_config_from_file()
 if _saved_proxy:
     state.proxy_config.update(_saved_proxy)
-    apply_proxy_config()
 
 
 def generate_device(platform, device_age_days=300, country=None, exclude_models=None, max_attempts=30):
@@ -177,6 +185,7 @@ def generate_device(platform, device_age_days=300, country=None, exclude_models=
 def _try_proxy_connection(username_override=None, max_retries=3):
     import requests
     import random
+    import socket
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
 
@@ -195,10 +204,34 @@ def _try_proxy_connection(username_override=None, max_retries=3):
         state.log(f"  [!] 检测到停止信号，跳过代理连接")
         return None, None
 
+    state.log(f"  [*] 正在进行网络连通性测试...")
+    try:
+        ip_addresses = socket.gethostbyname_ex(proxy.host)
+        state.log(f"  [*] DNS解析成功: {proxy.host} -> {ip_addresses[2]}")
+    except socket.gaierror as e:
+        state.log(f"  [!] DNS解析失败: {str(e)}")
+        state.log(f"  [!] 请检查: 1) 域名拼写是否正确 2) DNS服务器配置 3) 网络连接")
+        return None, None
+
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(10)
+        result = sock.connect_ex((proxy.host, proxy.port))
+        sock.close()
+        if result == 0:
+            state.log(f"  [*] 端口 {proxy.port} 连通性测试通过")
+        else:
+            state.log(f"  [!] 端口 {proxy.port} 无法连接 (错误码: {result})")
+            state.log(f"  [!] 可能原因: 1) 防火墙拦截 2) 代理服务未运行 3) 端口号错误")
+            return None, None
+    except Exception as e:
+        state.log(f"  [!] 端口测试异常: {str(e)}")
+        return None, None
+
     def make_proxies(uname):
         auth = f"{uname}:{proxy.password}@" if proxy.password else f"{uname}@"
-        url = f"http://{auth}{proxy.host}:{proxy.port}"
-        return {"http": url, "https": url}, uname
+        proxy_url = f"http://{auth}{proxy.host}:{proxy.port}"
+        return {"http": proxy_url, "https": proxy_url}, uname
 
     test_urls = [
         "http://ip-api.com/json/?fields=status,message,country,countryCode,region,city,isp,query",
@@ -349,22 +382,35 @@ def apply_proxy_config():
     pc = state.proxy_config
     proxy.enabled = pc["enabled"]
     proxy_protocol = pc.get("proxy_type", "http").lower()
-    proxy_plan = pc.get("proxy_plan", "residential").lower()
-    provider = pc.get("provider", "iproyal").lower()
     country = pc.get("country", "")
+    api_key = pc.get("api_key", "")
 
-    if provider == "proxy001":
-        config_entry = PROXY001_CONFIG.get(proxy_plan, PROXY001_CONFIG["residential"])
-    else:
-        config_entry = IPROYAL_CONFIG.get(proxy_plan, IPROYAL_CONFIG["residential"])
-
-    proxy.host = config_entry["host"]
-    proxy.port = config_entry["http_port"] if proxy_protocol == "http" else config_entry["socks5_port"]
-    proxy.username = pc["username"].strip() if pc["username"] else ""
-    proxy.password = pc["password"]
-    proxy.provider = provider
+    proxy.host = ""
+    proxy.port = 0
+    proxy.username = ""
+    proxy.password = ""
+    proxy.provider = "proxy001"
     proxy.country = country
+    proxy.proxy_type = proxy_protocol
+    proxy.api_key = api_key
+    
+    if proxy.api_key:
+        state.log(f"  [*] 使用API提取模式，从 proxy001 API 获取代理IP")
+        success = proxy.fetch_and_update_from_api()
+        if success:
+            state.log(f"  [*] API提取成功: {proxy.host}:{proxy.port}")
+            if proxy.username:
+                state.log(f"  [*] 代理账号: {proxy.username}")
+        else:
+            state.log(f"  [!] API提取失败，请检查API密钥")
+            proxy.enabled = False
+    
     save_proxy_config_to_file()
+
+_saved_proxy = load_proxy_config_from_file()
+if _saved_proxy:
+    state.proxy_config.update(_saved_proxy)
+    apply_proxy_config()
 
 
 def device_to_dict(dev):
@@ -570,7 +616,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         state.log(f"  Root: {'是' if dev.system.is_rooted else '否'} | 模拟器: {'是' if dev.system.is_emulator else '否'}")
         time.sleep(0.3)
 
-        if proxy_actually_used and proxy.provider in ("iproyal", "proxy001"):
+        if proxy_actually_used and proxy.provider == "proxy001":
             dev_country = dev.system.country.upper()
             proxy.country = dev_country
             state.log(f"  代理国家已设置: {dev_country}")
@@ -1061,14 +1107,13 @@ def api_clear_logs():
 @app.route("/api/proxy", methods=["GET", "POST"])
 def api_proxy():
     if request.method == "POST":
-        data = request.get_json(silent=True) or {}
-        for k in ("enabled", "username", "password", "proxy_type", "proxy_plan", "provider", "country"):
+        data = request.get_json()
+        for k in ("enabled", "proxy_type", "provider", "country", "api_key"):
             if k in data:
                 state.proxy_config[k] = data[k]
-        if "enabled" in data:
-            state.proxy_config["enabled"] = bool(data["enabled"])
+        state.proxy_config["enabled"] = bool(data.get("enabled", False))
         apply_proxy_config()
-        state.log(f"代理配置已更新: {'启用' if state.proxy_config['enabled'] else '禁用'} ({state.proxy_config.get('provider', 'iproyal')})")
+        state.log(f"代理配置已更新: {'启用' if state.proxy_config['enabled'] else '禁用'} ({state.proxy_config.get('provider', 'proxy001')})")
     return jsonify(state.proxy_config)
 
 
@@ -1076,18 +1121,48 @@ def api_proxy():
 def api_proxy_delete():
     state.proxy_config = {
         "enabled": False,
-        "provider": "iproyal",
-        "host": "geo.iproyal.com",
-        "port": 12321,
+        "provider": "proxy001",
+        "host": "",
+        "port": 0,
         "username": "",
         "password": "",
         "proxy_type": "http",
-        "proxy_plan": "residential",
         "country": "",
+        "api_key": "",
     }
     apply_proxy_config()
-    state.log("代理配置已删除")
     return jsonify({"success": True})
+
+
+@app.route("/api/browser", methods=["GET", "POST"])
+def api_browser():
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        for k in ("enabled", "headless", "browser_type", "viewport_width", "viewport_height", "page_timeout"):
+            if k in data:
+                state.browser_config[k] = data[k]
+        if "enabled" in data:
+            state.browser_config["enabled"] = bool(data["enabled"])
+        
+        bc = BrowserConfig(
+            enabled=state.browser_config["enabled"],
+            headless=state.browser_config["headless"],
+            browser_type=state.browser_config["browser_type"],
+            viewport_width=state.browser_config["viewport_width"],
+            viewport_height=state.browser_config["viewport_height"],
+            page_timeout=state.browser_config["page_timeout"],
+            proxy_host=proxy.host,
+            proxy_port=proxy.port,
+            proxy_username=proxy.username,
+            proxy_password=proxy.password,
+        )
+        
+        success = init_browser_engine(bc)
+        state.log(f"浏览器配置已更新: {'启用' if state.browser_config['enabled'] else '禁用'}")
+        if state.browser_config["enabled"] and not success:
+            state.log("[!] Playwright未安装，请先安装依赖")
+    
+    return jsonify(state.browser_config)
 
 
 @app.route("/api/stop", methods=["GET", "POST"])
@@ -1124,6 +1199,7 @@ def api_stats():
             stats["revenue_per_click"] = 0
         stats["auto_running"] = state.auto_running
         stats["current_run"] = state.current_run
+        stats["target_impressions"] = state.target_impressions
     return jsonify(stats)
 
 
@@ -1131,14 +1207,20 @@ def api_stats():
 def api_auto_start():
     if state.running or state.auto_running:
         return jsonify({"error": "already running"}), 409
+    data = request.get_json(silent=True) or {}
+    target_impressions = int(data.get("target_impressions", 0))
     state.reset_stats()
     with state.lock:
         state.auto_running = True
         state.current_run = 0
-    state.log("═══ 启动自动化循环 ═══")
+        state.target_impressions = target_impressions
+    if target_impressions > 0:
+        state.log(f"═══ 启动自动化循环 (目标展示量: {target_impressions:,}) ═══")
+    else:
+        state.log("═══ 启动自动化循环 ═══")
     t = threading.Thread(target=auto_loop_thread, daemon=True)
     t.start()
-    return jsonify({"started": True, "auto_running": True})
+    return jsonify({"started": True, "auto_running": True, "target_impressions": target_impressions})
 
 
 @app.route("/api/auto-stop", methods=["POST"])
@@ -1462,7 +1544,7 @@ def auto_loop_thread():
             state.log(f"  IP: {real_ip or dev.network.ip_address}")
             state.log(f"  指纹: {dev.device_fingerprint[:16]}...")
 
-            if proxy_actually_used and proxy.provider in ("iproyal", "proxy001"):
+            if proxy_actually_used and proxy.provider == "proxy001":
                 dev_country = dev.system.country.upper()
                 proxy.country = dev_country
                 state.log(f"  代理国家已设置: {dev_country}")
@@ -1869,6 +1951,13 @@ def auto_loop_thread():
                 avg_dur = round(state.stats["total_duration"] / total, 2) if total > 0 else 0
             
             state.log(f"  累计统计: {total}次 | 点击率: {click_rate}% | 转化率: {conv_rate}% | 平均时长: {avg_dur}s")
+
+            with state.lock:
+                target_imp = state.target_impressions
+            if target_imp > 0 and total >= target_imp:
+                state.log(f"  ✓ 已达到目标展示量: {total}/{target_imp}")
+                state.log("═══ 自动化循环已停止（目标完成） ═══")
+                break
 
             if proxy.enabled:
                 state.log(f"  [*] 准备轮换代理会话...")

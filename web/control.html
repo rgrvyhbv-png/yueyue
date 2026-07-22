@@ -62,6 +62,38 @@ header {
   padding:8px 16px; border-radius:7px; font-family:var(--font); font-size:12px;
   font-weight:700; cursor:pointer; transition:all .2s; border:none;
 }
+.target-settings {
+  display:flex; align-items:center; gap:8px; background:var(--surface2);
+  padding:6px 12px; border-radius:7px; border:1px solid var(--border);
+}
+.target-settings label { font-size:11px; color:var(--text-dim); font-weight:600; }
+.target-settings input {
+  width:100px; background:var(--surface); border:1px solid var(--border);
+  color:var(--text); padding:6px 8px; border-radius:5px; font-family:var(--font);
+  font-size:11px; outline:none;
+}
+.target-settings input:focus { border-color:var(--accent); }
+.preset-btns { display:flex; gap:4px; }
+.preset-btns button {
+  padding:4px 8px; font-size:10px; font-weight:600; background:transparent;
+  border:1px solid var(--border); color:var(--text); border-radius:4px;
+  cursor:pointer;
+}
+.preset-btns button:hover { border-color:var(--accent); color:var(--accent); }
+.browser-settings {
+  display:flex; align-items:center; gap:8px; background:var(--surface2);
+  padding:6px 12px; border-radius:7px; border:1px solid var(--border);
+}
+.browser-settings label { font-size:11px; color:var(--text-dim); font-weight:600; }
+.browser-settings select {
+  background:var(--surface); border:1px solid var(--border); color:var(--text);
+  padding:4px 6px; border-radius:4px; font-size:11px; outline:none; cursor:pointer;
+}
+.browser-settings input[type="checkbox"] { width:14px; height:14px; cursor:pointer; }
+.browser-settings input[type="number"] {
+  width:60px; background:var(--surface); border:1px solid var(--border);
+  color:var(--text); padding:4px 6px; border-radius:4px; font-size:11px; outline:none;
+}
 .btn-primary {
   background:linear-gradient(135deg,var(--accent),#00c48a); color:#000;
 }
@@ -199,6 +231,29 @@ header {
     </div>
   </div>
   <div class="toolbar">
+    <div class="target-settings">
+      <label>目标展示量:</label>
+      <input type="number" id="targetImpressions" placeholder="0=无限" min="0" max="1000000">
+      <div class="preset-btns">
+        <button onclick="setTarget(10000)">1万</button>
+        <button onclick="setTarget(30000)">3万</button>
+        <button onclick="setTarget(50000)">5万</button>
+        <button onclick="setTarget(100000)">10万</button>
+      </div>
+    </div>
+    <div class="browser-settings">
+      <label>浏览器:</label>
+      <input type="checkbox" id="browserEnabled" onchange="toggleBrowser()">
+      <select id="browserType">
+        <option value="chromium">Chrome</option>
+        <option value="firefox">Firefox</option>
+        <option value="webkit">Safari</option>
+      </select>
+      <input type="checkbox" id="browserHeadless" checked onchange="saveBrowserConfig()">
+      <label style="font-size:10px">无头</label>
+      <input type="number" id="browserWidth" value="375" onchange="saveBrowserConfig()">
+      <input type="number" id="browserHeight" value="812" onchange="saveBrowserConfig()">
+    </div>
     <button class="btn-primary" onclick="startAllAuto()">🔄 全部开始自动循环</button>
     <button class="btn-danger" onclick="stopAllSim()">⏹ 全部停止</button>
     <button class="refresh-btn" onclick="loadInstances()">🔄 刷新状态</button>
@@ -351,7 +406,7 @@ function renderInstances() {
         </div>
         <div class="info-row">
           <span class="l">运行次数</span>
-          <span class="v">${stats.total_runs || 0}</span>
+          <span class="v">${stats.total_runs || 0}${stats.target_impressions > 0 ? `/${stats.target_impressions.toLocaleString()}` : ''}</span>
         </div>
         <div class="info-row">
           <span class="l">收益</span>
@@ -396,7 +451,7 @@ function updateStats() {
   document.getElementById('offlineCount').textContent = offline;
 }
 
-async function callInstanceApi(id, endpoint, method = 'POST') {
+async function callInstanceApi(id, endpoint, data = {}) {
   const inst = instances.find(i => i.id === id);
   if (!inst || !inst.online) {
     showToast('error', `实例 ${id} 离线`);
@@ -405,15 +460,62 @@ async function callInstanceApi(id, endpoint, method = 'POST') {
   
   try {
     const r = await fetch(`http://${SERVER_IP}:${inst.port}${endpoint}`, {
-      method: method,
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: method === 'POST' ? JSON.stringify({}) : undefined
+      body: JSON.stringify(data)
     });
     return await r.json();
   } catch(e) {
     showToast('error', `调用失败: ${e.message}`);
     return null;
   }
+}
+
+function getBrowserConfig() {
+  return {
+    enabled: document.getElementById('browserEnabled').checked,
+    browser_type: document.getElementById('browserType').value,
+    headless: document.getElementById('browserHeadless').checked,
+    viewport_width: parseInt(document.getElementById('browserWidth').value) || 375,
+    viewport_height: parseInt(document.getElementById('browserHeight').value) || 812,
+    page_timeout: 30,
+  };
+}
+
+async function saveBrowserConfig() {
+  const config = getBrowserConfig();
+  for (const inst of instances) {
+    if (inst.online) {
+      await fetch(`http://${SERVER_IP}:${inst.port}/api/browser`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+    }
+  }
+  if (config.enabled) {
+    showToast('info', `已启用真实浏览器 (${config.browser_type})`);
+  } else {
+    showToast('info', '已禁用浏览器引擎');
+  }
+}
+
+function toggleBrowser() {
+  const enabled = document.getElementById('browserEnabled').checked;
+  document.getElementById('browserType').disabled = !enabled;
+  document.getElementById('browserHeadless').disabled = !enabled;
+  document.getElementById('browserWidth').disabled = !enabled;
+  document.getElementById('browserHeight').disabled = !enabled;
+  saveBrowserConfig();
+}
+
+function getTargetImpressions() {
+  const val = parseInt(document.getElementById('targetImpressions').value) || 0;
+  return val;
+}
+
+function setTarget(val) {
+  document.getElementById('targetImpressions').value = val;
 }
 
 async function startSim(id) {
@@ -425,9 +527,11 @@ async function startSim(id) {
 }
 
 async function startAuto(id) {
-  const result = await callInstanceApi(id, '/api/auto-start');
+  const target = getTargetImpressions();
+  const result = await callInstanceApi(id, '/api/auto-start', { target_impressions: target });
   if (result && !result.error) {
-    showToast('success', `实例 ${id} 开始自动循环`);
+    const msg = target > 0 ? `实例 ${id} 开始自动循环 (目标: ${target.toLocaleString()})` : `实例 ${id} 开始自动循环`;
+    showToast('success', msg);
     setTimeout(loadInstances, 1000);
   }
 }
@@ -447,14 +551,17 @@ async function startAllAuto() {
     return;
   }
   
-  showToast('info', `正在启动 ${onlineInstances.length} 个实例...`);
+  const target = getTargetImpressions();
+  const msg = target > 0 ? `正在启动 ${onlineInstances.length} 个实例... (目标: ${target.toLocaleString()})` : `正在启动 ${onlineInstances.length} 个实例...`;
+  showToast('info', msg);
   
   for (const inst of onlineInstances) {
-    await callInstanceApi(inst.id, '/api/auto-start');
+    await callInstanceApi(inst.id, '/api/auto-start', { target_impressions: target });
     await new Promise(r => setTimeout(r, 500));
   }
   
-  showToast('success', '全部实例已开始自动循环');
+  const successMsg = target > 0 ? `全部实例已开始自动循环 (目标: ${target.toLocaleString()})` : '全部实例已开始自动循环';
+  showToast('success', successMsg);
   setTimeout(loadInstances, 2000);
 }
 

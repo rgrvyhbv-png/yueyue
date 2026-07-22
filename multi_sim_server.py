@@ -20,7 +20,7 @@ from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
 from config import config, proxy
-from config.proxy import IPROYAL_CONFIG
+
 
 logging.basicConfig(level=logging.WARNING)
 app_logger = logging.getLogger("multi_sim")
@@ -255,13 +255,18 @@ def apply_proxy_config():
     pc = config.get("proxy", {})
     proxy.enabled = pc.get("enabled", False)
     proxy_protocol = pc.get("proxy_type", "http").lower()
-    proxy_plan = pc.get("proxy_plan", "residential").lower()
-    config_entry = IPROYAL_CONFIG.get(proxy_plan, IPROYAL_CONFIG["residential"])
-    proxy.host = config_entry["host"]
-    proxy.port = config_entry["http_port"] if proxy_protocol == "http" else config_entry["socks5_port"]
-    proxy.username = pc.get("username", "").strip()
-    proxy.password = pc.get("password", "")
-    proxy.provider = "iproyal"
+    proxy.country = pc.get("country", "")
+    proxy.api_key = pc.get("api_key", "")
+    proxy.proxy_type = proxy_protocol
+    
+    proxy.host = ""
+    proxy.port = 0
+    proxy.username = ""
+    proxy.password = ""
+    proxy.provider = "proxy001"
+    
+    if proxy.api_key:
+        proxy.fetch_and_update_from_api()
 
 @app.route('/')
 def index():

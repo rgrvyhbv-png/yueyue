@@ -1,49 +1,45 @@
 import os
+import requests
 from dataclasses import dataclass
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 
-IPROYAL_CONFIG = {
-    "residential": {
-        "host": "geo.iproyal.com",
-        "http_port": 12321,
-        "socks5_port": 32325,
-    },
-    "datacenter": {
-        "host": "geo.iproyal.com",
-        "http_port": 12323,
-        "socks5_port": 12324,
-    },
-}
+PROXY001_API_URL = "https://proxy001.com/api/proxy/getIPlist"
 
-PROXY001_CONFIG = {
-    "residential": {
-        "host": "us.proxy001.com",
-        "http_port": 7878,
-        "socks5_port": 7879,
-    },
-    "static_residential": {
-        "host": "us.proxy001.com",
-        "http_port": 7878,
-        "socks5_port": 7879,
-    },
-    "datacenter": {
-        "host": "us.proxy001.com",
-        "http_port": 7878,
-        "socks5_port": 7879,
-    },
-}
 
-PROXY001_COUNTRY_HOSTS = {
-    "US": "us.proxy001.com",
-    "GB": "gb.proxy001.com",
-    "DE": "de.proxy001.com",
-    "FR": "fr.proxy001.com",
-    "CA": "ca.proxy001.com",
-    "AU": "au.proxy001.com",
-    "JP": "jp.proxy001.com",
-    "SG": "sg.proxy001.com",
-}
+def fetch_proxy_from_api(api_key: str, num: int = 1, regions: str = "GLOBAL", protocol: str = "http") -> Optional[List[Dict]]:
+    try:
+        params = {
+            "num": num,
+            "regions": regions,
+            "protocol": protocol,
+            "return_type": "json",
+            "lb": 1,
+            "sb": "",
+        }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        }
+        
+        url = f"{PROXY001_API_URL}?api_key={api_key}"
+        for k, v in params.items():
+            url += f"&{k}={v}"
+        
+        resp = requests.get(url, headers=headers, timeout=15)
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, list) and len(data) > 0:
+                return data
+            elif isinstance(data, dict) and "data" in data:
+                return data["data"]
+        else:
+            print(f"API请求失败: {resp.status_code}")
+            print(f"响应内容: {resp.text[:200]}")
+    except Exception as e:
+        print(f"API请求异常: {str(e)}")
+    
+    return None
 
 
 @dataclass
@@ -54,45 +50,26 @@ class ProxyConfig:
     username: str = ""
     password: str = ""
     proxy_type: str = "http"
-    provider: str = ""
+    provider: str = "proxy001"
     country: str = ""
-    session_id: str = ""
+    api_key: str = ""
 
-    def get_proxy_url(self, new_session: bool = False, country: str = "") -> Optional[str]:
+    def get_proxy_url(self) -> Optional[str]:
         if not self.enabled:
             return None
         if not self.host or not self.port:
             return None
 
-        import random
-        username = self.username
-        target_country = country or self.country
-
-        if self.provider == "iproyal":
-            parts = []
-            if target_country:
-                parts.append(f"-country-{target_country.upper()}")
-            if new_session:
-                session = self.session_id or f"session-{random.randint(1000, 9999)}"
-                parts.append(f"-{session}")
-            if parts:
-                username = self.username + "".join(parts)
-
-        elif self.provider == "proxy001":
-            if target_country and target_country.upper() in PROXY001_COUNTRY_HOSTS:
-                self.host = PROXY001_COUNTRY_HOSTS[target_country.upper()]
-            username = self.username
-
-        if username and self.password:
-            auth = f"{username}:{self.password}@"
-        elif username:
-            auth = f"{username}@"
+        if self.username and self.password:
+            auth = f"{self.username}:{self.password}@"
+        elif self.username:
+            auth = f"{self.username}@"
         else:
             auth = ""
-        return f"{self.proxy_type}://{auth}{self.host}:{self.port}"
+        return f"http://{auth}{self.host}:{self.port}"
 
-    def get_proxies_dict(self, new_session: bool = False, country: str = "") -> Optional[Dict[str, str]]:
-        url = self.get_proxy_url(new_session=new_session, country=country)
+    def get_proxies_dict(self) -> Optional[Dict[str, str]]:
+        url = self.get_proxy_url()
         if not url:
             return None
         return {
@@ -100,75 +77,50 @@ class ProxyConfig:
             "https": url,
         }
 
-    def setup_iproyal(
-        self,
-        username: str,
-        password: str,
-        proxy_type: str = "http",
-        proxy_plan: str = "residential",
-        country: str = "",
-    ):
-        config = IPROYAL_CONFIG.get(proxy_plan.lower(), IPROYAL_CONFIG["residential"])
-        self.enabled = True
-        self.host = config["host"]
-        self.port = config["http_port"] if proxy_type.lower() == "http" else config["socks5_port"]
-        self.username = username
-        self.password = password
-        self.proxy_type = proxy_type.lower()
-        self.provider = "iproyal"
-        self.country = country
-
-    def setup_proxy001(
-        self,
-        username: str,
-        password: str,
-        proxy_type: str = "http",
-        proxy_plan: str = "residential",
-        country: str = "",
-    ):
-        config = PROXY001_CONFIG.get(proxy_plan.lower(), PROXY001_CONFIG["residential"])
-        self.enabled = True
-        self.host = config["host"]
-        self.port = config["http_port"] if proxy_type.lower() == "http" else config["socks5_port"]
-        self.username = username
-        self.password = password
-        self.proxy_type = proxy_type.lower()
-        self.provider = "proxy001"
-        self.country = country
+    def fetch_and_update_from_api(self) -> bool:
+        if not self.api_key:
+            return False
+        
+        proxy_data = fetch_proxy_from_api(
+            api_key=self.api_key,
+            num=1,
+            regions=self.country if self.country else "GLOBAL",
+            protocol=self.proxy_type,
+        )
+        
+        if proxy_data and len(proxy_data) > 0:
+            proxy_info = proxy_data[0]
+            if "ip" in proxy_info and "port" in proxy_info:
+                self.host = proxy_info["ip"]
+                self.port = int(proxy_info["port"])
+                if "username" in proxy_info:
+                    self.username = proxy_info["username"]
+                if "password" in proxy_info:
+                    self.password = proxy_info["password"]
+                if "country" in proxy_info:
+                    self.country = proxy_info["country"]
+                self.enabled = True
+                return True
+        
+        return False
 
 
 def load_proxy_config_from_env() -> ProxyConfig:
-    host = os.environ.get("PROXY_HOST", "")
-    port = int(os.environ.get("PROXY_PORT", "0"))
-    username = os.environ.get("PROXY_USERNAME", "")
-    password = os.environ.get("PROXY_PASSWORD", "")
-    proxy_type = os.environ.get("PROXY_TYPE", "http")
-    provider = os.environ.get("PROXY_PROVIDER", "")
+    api_key = os.environ.get("PROXY_API_KEY", "")
     country = os.environ.get("PROXY_COUNTRY", "")
-
-    if provider.lower() == "iproyal" and username and password:
-        plan = os.environ.get("IPROYAL_PLAN", "residential")
-        config = IPROYAL_CONFIG.get(plan.lower(), IPROYAL_CONFIG["residential"])
-        host = config["host"]
-        port = config["http_port"] if proxy_type.lower() == "http" else config["socks5_port"]
-
-    elif provider.lower() == "proxy001" and username and password:
-        plan = os.environ.get("PROXY001_PLAN", "residential")
-        config = PROXY001_CONFIG.get(plan.lower(), PROXY001_CONFIG["residential"])
-        host = config["host"]
-        port = config["http_port"] if proxy_type.lower() == "http" else config["socks5_port"]
-
-    enabled = bool(host and port)
-    return ProxyConfig(
-        enabled=enabled,
-        host=host,
-        port=port,
-        username=username,
-        password=password,
-        proxy_type=proxy_type,
-        provider=provider,
+    proxy_type = os.environ.get("PROXY_TYPE", "http")
+    
+    config = ProxyConfig(
+        enabled=False,
+        api_key=api_key,
         country=country,
+        proxy_type=proxy_type,
     )
+    
+    if api_key:
+        config.fetch_and_update_from_api()
+    
+    return config
 
 
 proxy_config = load_proxy_config_from_env()

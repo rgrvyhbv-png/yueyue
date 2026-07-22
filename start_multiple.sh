@@ -18,6 +18,11 @@ fi
 echo "[INIT] 安装依赖..."
 $PYTHON_BIN -m pip install -r "$BASE_DIR/requirements.txt" -q
 
+echo "[INIT] 安装Playwright浏览器..."
+$PYTHON_BIN -m playwright install chromium --with-deps 2>/dev/null || true
+$PYTHON_BIN -m playwright install firefox --with-deps 2>/dev/null || true
+$PYTHON_BIN -m playwright install webkit --with-deps 2>/dev/null || true
+
 mkdir -p "$LOG_DIR"
 mkdir -p "$PID_DIR"
 
@@ -30,80 +35,41 @@ if ! grep -q "swapfile" /proc/swaps 2>/dev/null; then
     echo "[SWAP] 交换空间已启用"
 fi
 
-stop_all() {
-    echo "[STOP] 停止所有实例..."
-    pkill -f "python3 web_server.py" 2>/dev/null
-    pkill -f "python3 multi_sim_server.py" 2>/dev/null
-    sleep 3
-    rm -f "$PID_DIR"/*.pid
-    echo "[STOP] 所有实例已停止"
-}
+echo "[KILL] 停止旧进程..."
+pkill -f "web_server" 2>/dev/null || true
+pkill -f "gunicorn" 2>/dev/null || true
+sleep 3
 
-start_instance() {
-    local index=$1
-    local port=$((BASE_PORT + index - 1))
-    local log_file="$LOG_DIR/roiify_${port}_$(date +%Y%m%d).log"
-    local pid_file="$PID_DIR/roiify_${port}.pid"
-    
-    echo "[START] 启动实例 $index (端口: $port)..."
-    nohup $PYTHON_BIN web_server.py --port $port >> "$log_file" 2>&1 &
-    local pid=$!
-    
-    echo $pid > "$pid_file"
-    
-    local waited=0
-    local max_wait=15
-    local port_ready=0
-    
-    while [ $waited -lt $max_wait ]; do
-        sleep 1
-        waited=$((waited + 1))
-        
-        if kill -0 $pid 2>/dev/null; then
-            if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
-                port_ready=1
-                break
-            fi
-        else
-            break
-        fi
-    done
-    
-    if [ $port_ready -eq 1 ]; then
-        echo "[OK] 实例 $index 启动成功，PID: $pid"
-        return 0
-    else
-        echo "[FAIL] 实例 $index 启动失败"
-        echo "[DEBUG] 查看日志: tail -30 $log_file"
-        rm -f "$pid_file"
-        return 1
-    fi
-}
-
-stop_all
-
+echo "[START] 启动 $NUM_INSTANCES 个实例..."
 success_count=0
+
 for i in $(seq 1 $NUM_INSTANCES); do
-    start_instance $i
-    if [ $? -eq 0 ]; then
+    PORT=$((BASE_PORT + i - 1))
+    LOG_FILE="$LOG_DIR/roiify_${PORT}_$(date +%Y%m%d).log"
+    PID_FILE="$PID_DIR/roiify_${PORT}.pid"
+
+    echo "  启动实例 $i (端口: $PORT)..."
+    
+    nohup $PYTHON_BIN web_server.py --port $PORT > "$LOG_FILE" 2>&1 &
+    PID=$!
+    echo "$PID" > "$PID_FILE"
+    
+    sleep 2
+    
+    if kill -0 $PID 2>/dev/null; then
+        echo "  ✓ 实例 $i 启动成功 (PID: $PID)"
         success_count=$((success_count + 1))
+    else
+        echo "  ✗ 实例 $i 启动失败"
     fi
+    
     sleep 3
 done
 
 echo ""
-echo "=============================="
-echo "启动完成！"
-echo "=============================="
-echo "总实例数: $NUM_INSTANCES"
-echo "成功启动: $success_count"
-echo ""
-echo "访问地址:"
-for i in $(seq 1 $success_count); do
-    PORT=$((BASE_PORT + i - 1))
-    echo "  - 实例$i: http://${SERVER_IP}:${PORT}"
-done
-echo "  - 控制面板: http://${SERVER_IP}:${BASE_PORT}/control.html"
-echo ""
+echo "[DONE] 启动完成！"
+echo "成功: $success_count / $NUM_INSTANCES"
+echo "端口范围: $BASE_PORT-$((BASE_PORT + NUM_INSTANCES - 1))"
 echo "日志目录: $LOG_DIR"
-echo "PID目录: $PID_DIR"
+echo ""
+echo "访问地址: http://$SERVER_IP:$BASE_PORT/control.html"

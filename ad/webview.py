@@ -12,6 +12,7 @@ from device import DeviceInfo
 from config import config
 from utils import NetworkClient
 from ad.behavior_simulator import BehaviorSimulator
+from browser.engine import browser_engine
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ class WebViewSimulator:
             "click_id_retained": False,
             "duration": 0,
             "error": None,
+            "browser_type": "real",
         }
 
         if stay_duration is None:
@@ -65,101 +67,37 @@ class WebViewSimulator:
 
         logger.info(f"Loading landing page: {url[:100]}...")
 
-        max_retries = 5
-        response = None
-        current_network = self.network
-        
-        for attempt in range(max_retries):
-            try:
-                headers = self._get_webview_headers()
-                response = current_network.get(
-                    url,
-                    headers=headers,
-                    is_browser=True,
-                    allow_redirects=True,
-                    timeout=10,
-                )
-                result["status_code"] = response.status_code
-                result["final_url"] = response.url
+        if not browser_engine.is_enabled():
+            result["error"] = "Browser engine not enabled"
+            result["duration"] = time.time() - start_time
+            return result
 
-                if response.status_code == 200:
-                    self.current_url = response.url
-                    self.page_loaded = True
-                    self.page_load_time = int(time.time() * 1000)
-                    result["page_loaded"] = True
+        browser_result = browser_engine.load_page(
+            url=url,
+            referrer=referrer,
+            stay_duration=stay_duration,
+            simulate_behavior=simulate_behavior,
+        )
 
-                    self._fire_page_view_events(response.url, referrer)
-                    self._send_fingerprint_to_tracker(response.url)
-                    self.fingerprint_sent = True
-                    result["fingerprint_sent"] = True
+        result["success"] = browser_result["success"]
+        result["final_url"] = browser_result["final_url"]
+        result["page_loaded"] = browser_result["page_loaded"]
+        result["status_code"] = browser_result["status_code"]
+        result["behavior_events"] = browser_result.get("behavior_events", 0)
+        result["duration"] = browser_result["duration"]
+        result["error"] = browser_result["error"]
 
-                    tracking_pixels = self._detect_and_fire_tracking_pixels(response.text, response.url)
-                    self.tracking_pixels_fired.extend(tracking_pixels)
-                    result["tracking_pixels"] = len(tracking_pixels)
+        if browser_result.get("click_id"):
+            result["click_id_retained"] = True
+            self._fire_click_attribution_event(browser_result["click_id"], browser_result.get("final_url", url))
 
-                    click_id = self._extract_click_id_from_url(response.url)
-                    if click_id:
-                        result["click_id_retained"] = True
-                        self._fire_click_attribution_event(click_id, response.url)
+        if browser_result.get("content"):
+            tracking_pixels = self._detect_and_fire_tracking_pixels(browser_result["content"], browser_result.get("final_url", url))
+            self.tracking_pixels_fired.extend(tracking_pixels)
+            result["tracking_pixels"] = len(tracking_pixels)
 
-                    if simulate_behavior:
-                        num_events = random.randint(
-                            config.MIN_BEHAVIOR_EVENTS,
-                            config.MAX_BEHAVIOR_EVENTS
-                        )
-                        events = self.behavior.simulate_page_behavior(
-                            url=response.url,
-                            duration=stay_duration,
-                            num_events=num_events,
-                            network=self.network,
-                        )
-                        self.session_events.extend(events)
-                        result["behavior_events"] = len(events)
-
-                        behavior_start = time.time()
-                        self._simulate_scroll_depth()
-                        self._simulate_touch_interaction()
-                        behavior_duration = time.time() - behavior_start
-                        
-                        # 发送行为事件到追踪服务器
-                        self._send_behavior_events(response.url)
-                        
-                        remaining = max(0, stay_duration - behavior_duration)
-                        if remaining > 0:
-                            time.sleep(remaining)
-                    else:
-                        time.sleep(stay_duration)
-
-                    result["success"] = True
-                    break
-                else:
-                    if attempt < max_retries - 1:
-                        logger.info(f"Page failed with {response.status_code}, refreshing immediately... (attempt {attempt + 1}/{max_retries})")
-                        current_network = NetworkClient(device=self.device)
-                        continue
-                    result["error"] = f"HTTP {response.status_code}"
-                    logger.warning(f"Landing page returned {response.status_code}")
-                    break
-
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    logger.info(f"Page load failed, user refreshing immediately... (attempt {attempt + 1}/{max_retries})")
-                    current_network = NetworkClient(device=self.device)
-                    continue
-                result["error"] = str(e)
-                logger.error(f"Failed to load landing page after {max_retries} attempts: {e}")
-                break
-
-        if not result["success"]:
-            self.current_url = url
-            result["final_url"] = url
-            if simulate_behavior:
-                time.sleep(min(3, stay_duration))
-            else:
-                time.sleep(1)
-
-        result["duration"] = time.time() - start_time
-        logger.info(f"Landing page session completed: {result['duration']:.1f}s")
+        self._send_fingerprint_to_tracker(browser_result.get("final_url", url))
+        result["fingerprint_sent"] = True
 
         return result
 
