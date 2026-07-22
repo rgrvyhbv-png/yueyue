@@ -259,6 +259,25 @@ header {
       <label>密码</label>
       <input id="pxPassword" type="password" placeholder="代理密码">
     </div>
+    <div class="form-group">
+      <label>地区</label>
+      <select id="pxCountry" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px 12px;font-family:var(--font);font-size:12px;outline:none;">
+        <option value="US">美国 (US)</option>
+        <option value="GB">英国 (GB)</option>
+        <option value="DE">德国 (DE)</option>
+        <option value="JP">日本 (JP)</option>
+        <option value="KR">韩国 (KR)</option>
+        <option value="AU">澳大利亚 (AU)</option>
+        <option value="CA">加拿大 (CA)</option>
+        <option value="FR">法国 (FR)</option>
+        <option value="IT">意大利 (IT)</option>
+        <option value="ES">西班牙 (ES)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>API Key</label>
+      <input id="pxApiKey" type="text" placeholder="可选，用于API获取代理">
+    </div>
     <button class="btn-save" onclick="saveProxy()">保存</button>
     <button class="btn-delete" onclick="deleteProxy()" style="padding:8px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--err);font-family:var(--font);font-size:12px;cursor:pointer;">删除</button>
   </div>
@@ -361,6 +380,8 @@ async function loadProxy() {
     const p = await r.json();
     document.getElementById('pxUsername').value = p.username || '';
     document.getElementById('pxPassword').value = p.password || '';
+    document.getElementById('pxCountry').value = p.country || 'US';
+    document.getElementById('pxApiKey').value = p.api_key || '';
     document.getElementById('proxyToggle').classList.toggle('on', p.enabled);
   } catch(e){}
 }
@@ -372,6 +393,8 @@ async function saveProxy() {
     provider: 'proxy001',
     username: document.getElementById('pxUsername').value,
     password: document.getElementById('pxPassword').value,
+    country: document.getElementById('pxCountry').value,
+    api_key: document.getElementById('pxApiKey').value,
   };
   try {
     await fetch('/api/proxy', {

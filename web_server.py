@@ -388,14 +388,52 @@ def apply_proxy_config():
     proxy.enabled = pc["enabled"]
     proxy_protocol = pc.get("proxy_type", "http").lower()
     
-    proxy.host = "us.proxy001.com"
-    proxy.port = 7878
-    proxy.username = pc.get("username", "")
-    proxy.password = pc.get("password", "")
+    # 使用 proxy001 API 获取指定地区的代理IP
+    from config.proxy import fetch_proxy_from_api
+    
+    country = pc.get("country", "US").upper()
+    api_key = pc.get("api_key", "")
+    username = pc.get("username", "")
+    password = pc.get("password", "")
+    
+    # 如果有API Key，优先使用API获取指定地区的代理
+    if api_key:
+        proxy_data = fetch_proxy_from_api(
+            api_key=api_key,
+            num=1,
+            regions=country,
+            protocol=proxy_protocol,
+        )
+        if proxy_data and len(proxy_data) > 0:
+            proxy_info = proxy_data[0]
+            proxy.host = proxy_info.get("ip", proxy.host)
+            proxy.port = int(proxy_info.get("port", 7878))
+            if "username" in proxy_info:
+                proxy.username = proxy_info["username"]
+            if "password" in proxy_info:
+                proxy.password = proxy_info["password"]
+            if "country" in proxy_info:
+                proxy.country = proxy_info["country"]
+            state.log(f"  [API] 通过API获取代理: {proxy.host}:{proxy.port} 地区: {proxy.country}")
+        else:
+            # API获取失败，使用账号密码方式
+            proxy.host = f"{country.lower()}.proxy001.com" if country else "us.proxy001.com"
+            proxy.port = 7878
+            proxy.username = username
+            proxy.password = password
+            proxy.country = country
+            state.log(f"  [API] API获取失败，使用账号密码方式: {proxy.host}:{proxy.port}")
+    else:
+        # 无API Key，使用账号密码方式
+        proxy.host = f"{country.lower()}.proxy001.com" if country else "us.proxy001.com"
+        proxy.port = 7878
+        proxy.username = username
+        proxy.password = password
+        proxy.country = country
+    
     proxy.provider = "proxy001"
-    proxy.country = pc.get("country", "")
     proxy.proxy_type = proxy_protocol
-    proxy.api_key = ""
+    proxy.api_key = api_key
     
     save_proxy_config_to_file()
 
@@ -518,7 +556,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
             real_ip_info = fetch_proxy_ip_info()
             if real_ip_info:
                 real_ip = real_ip_info["query"]
-                target_country = real_ip_info["countryCode"]
+                proxy_country = real_ip_info["countryCode"]
                 real_isp = real_ip_info.get("isp", "Unknown ISP")
                 real_tz_name = real_ip_info.get("timezone", "UTC")
                 from datetime import datetime
@@ -530,17 +568,19 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
                 except Exception:
                     real_tz_offset = 0
                 proxy_actually_used = True
+                # 使用用户设置的国家，优先于代理检测到的国家
+                target_country = state.proxy_config.get("country", proxy_country).upper()
                 state.log(f"  ✓ 代理连接成功 - 所有请求将通过代理发送")
-                state.log(f"  出口IP: {real_ip} | 地区: {target_country} | ISP: {real_isp}")
+                state.log(f"  出口IP: {real_ip} | 用户设置地区: {target_country} | 代理实际地区: {proxy_country} | ISP: {real_isp}")
                 state.log(f"  时区: {real_tz_name}")
             else:
                 state.log(f"  [!] 代理连接失败（可能是网络/防火墙问题）")
-                state.log(f"  [!] 将使用默认US地区配置，但网络请求可能不走代理")
-                target_country = "US"
+                target_country = state.proxy_config.get("country", "US").upper()
+                state.log(f"  [!] 将使用用户设置的{target_country}地区配置，但网络请求可能不走代理")
         else:
             state.log(f"  未启用代理，使用本地网络")
-            state.log(f"  默认地区: US（可通过代理自动匹配）")
-            target_country = "US"
+            target_country = state.proxy_config.get("country", "US").upper()
+            state.log(f"  默认地区: {target_country}")
 
         state.set_phase(1)
         state.log("─ Phase 1: 生成设备指纹 ─")
@@ -1038,12 +1078,16 @@ def api_device():
         import random as _rnd
         plat = _rnd.choice(["android", "ios"])
     apply_proxy_config()
-    detected_country = "US"
+    # 使用用户设置的国家，优先于代理检测到的国家
+    user_country = state.proxy_config.get("country", "US").upper()
+    detected_country = user_country
     ip_info = None
     if proxy.enabled:
         ip_info = fetch_proxy_ip_info()
+        # 代理检测到的国家用于验证，用户设置的国家用于设备指纹
         if ip_info:
-            detected_country = ip_info.get("countryCode")
+            proxy_country = ip_info.get("countryCode", "UNKNOWN")
+            state.log(f"  [*] 用户设置国家: {user_country} | 代理实际国家: {proxy_country}")
     dev = generate_device(plat, age, country=detected_country)
     if ip_info:
         real_ip = ip_info.get("query")
@@ -1475,12 +1519,14 @@ def auto_loop_thread():
                     
                     if real_ip_info:
                         real_ip = real_ip_info["query"]
-                        target_country = real_ip_info["countryCode"]
+                        proxy_country = real_ip_info["countryCode"]
                         real_isp = real_ip_info.get("isp", "Unknown ISP")
                         proxy_actually_used = True
+                        # 使用用户设置的国家，优先于代理检测到的国家
+                        target_country = state.proxy_config.get("country", proxy_country).upper()
                         state.log(f"  ✓ 代理连接成功")
                         state.log(f"    出口IP: {real_ip}")
-                        state.log(f"    地区: {target_country} | ISP: {real_isp}")
+                        state.log(f"    用户设置地区: {target_country} | 代理实际地区: {proxy_country} | ISP: {real_isp}")
                         break
                     else:
                         state.log(f"  ✗ 代理连接失败")
@@ -1508,10 +1554,10 @@ def auto_loop_thread():
                     state.update_stats(run_data)
                     continue
             else:
-                target_country = "US"
+                # 使用用户设置的国家，默认US
+                target_country = state.proxy_config.get("country", "US").upper()
             
-            if target_country:
-                target_country = "US"
+            state.log(f"  [*] 目标国家: {target_country}")
 
             state.set_phase(1)
             state.log("─ Phase 1: 生成设备指纹 ─")
