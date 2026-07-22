@@ -18,7 +18,7 @@ from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
 from config import config, proxy
-from config.proxy import IPROYAL_CONFIG
+from config.proxy import IPROYAL_CONFIG, PROXY001_CONFIG
 
 logging.basicConfig(level=logging.WARNING)
 server_logger = logging.getLogger("web_server")
@@ -45,12 +45,14 @@ class SimState:
         self.current_device_ios = None
         self.proxy_config = {
             "enabled": proxy.enabled,
+            "provider": "iproyal",
             "host": "geo.iproyal.com",
             "port": 12321,
             "username": proxy.username,
             "password": proxy.password,
             "proxy_type": "http",
             "proxy_plan": "residential",
+            "country": "",
         }
         self.stats = {
             "total_runs": 0,
@@ -347,12 +349,20 @@ def apply_proxy_config():
     proxy.enabled = pc["enabled"]
     proxy_protocol = pc.get("proxy_type", "http").lower()
     proxy_plan = pc.get("proxy_plan", "residential").lower()
-    config_entry = IPROYAL_CONFIG.get(proxy_plan, IPROYAL_CONFIG["residential"])
+    provider = pc.get("provider", "iproyal").lower()
+    country = pc.get("country", "")
+
+    if provider == "proxy001":
+        config_entry = PROXY001_CONFIG.get(proxy_plan, PROXY001_CONFIG["residential"])
+    else:
+        config_entry = IPROYAL_CONFIG.get(proxy_plan, IPROYAL_CONFIG["residential"])
+
     proxy.host = config_entry["host"]
     proxy.port = config_entry["http_port"] if proxy_protocol == "http" else config_entry["socks5_port"]
     proxy.username = pc["username"].strip() if pc["username"] else ""
     proxy.password = pc["password"]
-    proxy.provider = "iproyal"
+    proxy.provider = provider
+    proxy.country = country
     save_proxy_config_to_file()
 
 
@@ -558,6 +568,11 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         state.log(f"  指纹: {dev.device_fingerprint[:24]}...")
         state.log(f"  Root: {'是' if dev.system.is_rooted else '否'} | 模拟器: {'是' if dev.system.is_emulator else '否'}")
         time.sleep(0.3)
+
+        if proxy_actually_used and proxy.provider in ("iproyal", "proxy001"):
+            dev_country = dev.system.country.upper()
+            proxy.country = dev_country
+            state.log(f"  代理国家已设置: {dev_country}")
 
         if state.should_stop():
             state.log("═══ 模拟已停止 ═══")
@@ -1046,13 +1061,13 @@ def api_clear_logs():
 def api_proxy():
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
-        for k in ("enabled", "username", "password", "proxy_type", "proxy_plan"):
+        for k in ("enabled", "username", "password", "proxy_type", "proxy_plan", "provider", "country"):
             if k in data:
                 state.proxy_config[k] = data[k]
         if "enabled" in data:
             state.proxy_config["enabled"] = bool(data["enabled"])
         apply_proxy_config()
-        state.log(f"代理配置已更新: {'启用' if state.proxy_config['enabled'] else '禁用'}")
+        state.log(f"代理配置已更新: {'启用' if state.proxy_config['enabled'] else '禁用'} ({state.proxy_config.get('provider', 'iproyal')})")
     return jsonify(state.proxy_config)
 
 
@@ -1060,12 +1075,14 @@ def api_proxy():
 def api_proxy_delete():
     state.proxy_config = {
         "enabled": False,
+        "provider": "iproyal",
         "host": "geo.iproyal.com",
         "port": 12321,
         "username": "",
         "password": "",
         "proxy_type": "http",
         "proxy_plan": "residential",
+        "country": "",
     }
     apply_proxy_config()
     state.log("代理配置已删除")
@@ -1443,6 +1460,11 @@ def auto_loop_thread():
             state.log(f"  网络: {dev.network.connection_type} | 运营商: {dev.network.carrier_name}")
             state.log(f"  IP: {real_ip or dev.network.ip_address}")
             state.log(f"  指纹: {dev.device_fingerprint[:16]}...")
+
+            if proxy_actually_used and proxy.provider in ("iproyal", "proxy001"):
+                dev_country = dev.system.country.upper()
+                proxy.country = dev_country
+                state.log(f"  代理国家已设置: {dev_country}")
 
             if state.should_stop():
                 state.log("═══ 自动化循环已停止 ═══")
