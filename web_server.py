@@ -197,7 +197,8 @@ def _try_proxy_connection(username_override=None, max_retries=3):
         return None, None
 
     if not test_username:
-        state.log(f"  [*] 代理账号为空，尝试无认证连接...")
+        state.log(f"  [!] 代理账号为空")
+        return None, None
 
     if state.should_stop() or (hasattr(state, 'auto_running') and not state.auto_running):
         state.log(f"  [!] 检测到停止信号，跳过代理连接")
@@ -386,28 +387,15 @@ def apply_proxy_config():
     pc = state.proxy_config
     proxy.enabled = pc["enabled"]
     proxy_protocol = pc.get("proxy_type", "http").lower()
-    country = pc.get("country", "")
-    api_key = pc.get("api_key", "")
-
-    proxy.host = ""
-    proxy.port = 0
-    proxy.username = ""
-    proxy.password = ""
-    proxy.provider = "proxy001"
-    proxy.country = country
-    proxy.proxy_type = proxy_protocol
-    proxy.api_key = api_key
     
-    if proxy.api_key:
-        state.log(f"  [*] 使用API提取模式，从 proxy001 API 获取代理IP")
-        success = proxy.fetch_and_update_from_api()
-        if success:
-            state.log(f"  [*] API提取成功: {proxy.host}:{proxy.port}")
-            if proxy.username:
-                state.log(f"  [*] 代理账号: {proxy.username}")
-        else:
-            state.log(f"  [!] API提取失败，请检查API密钥")
-            proxy.enabled = False
+    proxy.host = "us.proxy001.com"
+    proxy.port = 7878
+    proxy.username = pc.get("username", "")
+    proxy.password = pc.get("password", "")
+    proxy.provider = "proxy001"
+    proxy.country = pc.get("country", "")
+    proxy.proxy_type = proxy_protocol
+    proxy.api_key = ""
     
     save_proxy_config_to_file()
 
