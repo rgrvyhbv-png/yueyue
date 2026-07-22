@@ -753,7 +753,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         weights = [v / total_weighted for v in weighted_values]
         
         ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
-        click_success_rate = _rnd.uniform(0.015, 0.025)
+        click_success_rate = 0.01
         state.log(f"  [模拟] 广告类别: {ad_category} (价值${conversion_values[ad_category]}) | 预估点击率: {click_success_rate*100:.1f}%")
         
         will_click = _rnd.random() < click_success_rate
@@ -1515,6 +1515,12 @@ def auto_loop_thread():
 
             state.set_phase(1)
             state.log("─ Phase 1: 生成设备指纹 ─")
+            
+            # 限制已使用设备模型数量，避免过多导致生成效率低下
+            if len(state.used_device_models) > 50:
+                state.used_device_models.clear()
+                state.log(f"  [*] 已重置设备模型缓存")
+            
             dev = generate_device(platform, device_age, target_country, exclude_models=state.used_device_models)
             model_key = f"{dev.hardware.brand}|{dev.hardware.model}"
             state.used_device_models.add(model_key)
@@ -1550,9 +1556,28 @@ def auto_loop_thread():
 
             session_depth = _rnd.random()
             session_depth_label = "首次访问" if session_depth < 0.3 else "回访用户" if session_depth < 0.7 else "深度用户"
-            page_views_in_session = _rnd.randint(1, 8)
-            avg_scroll_depth = _rnd.uniform(30, 90)
-            time_on_page = _rnd.uniform(5, 60)
+            page_views_in_session = _rnd.randint(1, 12)
+            avg_scroll_depth = _rnd.uniform(20, 95)
+            time_on_page = _rnd.uniform(3, 90)
+            
+            # 增加随机跳过概率，模拟真实用户并非每次都看广告
+            skip_probability = _rnd.uniform(0.02, 0.08)
+            if _rnd.random() < skip_probability:
+                state.log(f"  [模拟] 用户跳过广告 (概率: {skip_probability*100:.1f}%)")
+                run_data = {
+                    "run": current_run_num,
+                    "success": False,
+                    "platform": platform,
+                    "device": f"{dev.hardware.brand} {dev.hardware.model}",
+                    "proxy_ip": real_ip,
+                    "proxy_country": target_country,
+                    "error": "user_skipped",
+                    "duration": round(time.time() - run_start_time, 2),
+                    "ad_category": "N/A",
+                    "conversion_value": 0,
+                }
+                state.update_stats(run_data)
+                continue
             
             state.log(f"  会话状态: {session_depth_label}")
             state.log(f"  本次会话页面数: {page_views_in_session}")
