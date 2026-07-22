@@ -197,8 +197,7 @@ def _try_proxy_connection(username_override=None, max_retries=3):
         return None, None
 
     if not test_username:
-        state.log(f"  [!] 代理账号为空")
-        return None, None
+        state.log(f"  [*] 代理账号为空，尝试无认证连接...")
 
     if state.should_stop() or (hasattr(state, 'auto_running') and not state.auto_running):
         state.log(f"  [!] 检测到停止信号，跳过代理连接")
@@ -229,7 +228,10 @@ def _try_proxy_connection(username_override=None, max_retries=3):
         return None, None
 
     def make_proxies(uname):
-        auth = f"{uname}:{proxy.password}@" if proxy.password else f"{uname}@"
+        if uname:
+            auth = f"{uname}:{proxy.password}@" if proxy.password else f"{uname}@"
+        else:
+            auth = ""
         proxy_url = f"http://{auth}{proxy.host}:{proxy.port}"
         return {"http": proxy_url, "https": proxy_url}, uname
 
