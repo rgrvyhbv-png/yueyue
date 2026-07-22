@@ -160,6 +160,13 @@ def load_proxy_config_from_file():
 _saved_proxy = load_proxy_config_from_file()
 if _saved_proxy:
     state.proxy_config.update(_saved_proxy)
+    # 如果加载的旧配置中的账号密码为空或使用了旧的GLOBAL账号，则使用新默认值
+    old_username = state.proxy_config.get("username", "")
+    if not old_username or "GLOBAL" in old_username:
+        state.proxy_config["username"] = "cqywpu596838_custom_zone_US"
+        state.proxy_config["password"] = "pwd595247"
+        state.proxy_config["country"] = "US"
+        save_proxy_config_to_file()
 
 
 def generate_device(platform, device_age_days=300, country=None, exclude_models=None, max_attempts=30):
@@ -440,6 +447,13 @@ def apply_proxy_config():
 _saved_proxy = load_proxy_config_from_file()
 if _saved_proxy:
     state.proxy_config.update(_saved_proxy)
+    # 如果加载的旧配置中的账号密码为空或使用了旧的GLOBAL账号，则使用新默认值
+    old_username = state.proxy_config.get("username", "")
+    if not old_username or "GLOBAL" in old_username:
+        state.proxy_config["username"] = "cqywpu596838_custom_zone_US"
+        state.proxy_config["password"] = "pwd595247"
+        state.proxy_config["country"] = "US"
+        save_proxy_config_to_file()
     apply_proxy_config()
 
 
