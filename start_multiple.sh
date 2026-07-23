@@ -6,7 +6,9 @@ LOG_DIR="$BASE_DIR/logs"
 PID_DIR="$BASE_DIR/pids"
 SERVER_IP="178.236.47.224"
 BASE_PORT=8765
-NUM_INSTANCES=8
+
+# 默认实例数量，可通过参数覆盖
+NUM_INSTANCES=${1:-8}
 
 PYTHON_BIN="$VENV_DIR/bin/python3"
 
@@ -40,6 +42,10 @@ pkill -f "web_server" 2>/dev/null || true
 pkill -f "gunicorn" 2>/dev/null || true
 sleep 3
 
+echo "[INFO] 服务器配置检测..."
+echo "[INFO] 建议实例数: 2核2GB服务器推荐 4-6 个实例"
+echo "[INFO] 当前启动: $NUM_INSTANCES 个实例"
+echo ""
 echo "[START] 启动 $NUM_INSTANCES 个实例..."
 success_count=0
 
