@@ -189,7 +189,7 @@ def generate_device(platform, device_age_days=300, country=None, exclude_models=
     return dev
 
 
-def _try_proxy_connection(username_override=None, max_retries=3):
+def _try_proxy_connection(username_override=None, max_retries=2):
     import requests
     import random
     import socket
@@ -200,7 +200,7 @@ def _try_proxy_connection(username_override=None, max_retries=3):
     test_username = test_username.strip() if test_username else ""
 
     if not proxy.host or not proxy.port:
-        state.log(f"  [!] 代理配置不完整: host={proxy.host}, port={proxy.port}")
+        state.log(f"  [!] 代理配置不完整")
         return None, None
 
     if not test_username:
@@ -211,44 +211,18 @@ def _try_proxy_connection(username_override=None, max_retries=3):
         state.log(f"  [!] 检测到停止信号，跳过代理连接")
         return None, None
 
-    state.log(f"  [*] 正在进行网络连通性测试...")
-    try:
-        ip_addresses = socket.gethostbyname_ex(proxy.host)
-        state.log(f"  [*] DNS解析成功: {proxy.host} -> {ip_addresses[2]}")
-    except socket.gaierror as e:
-        state.log(f"  [!] DNS解析失败: {str(e)}")
-        state.log(f"  [!] 请检查: 1) 域名拼写是否正确 2) DNS服务器配置 3) 网络连接")
-        return None, None
-
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(10)
-        result = sock.connect_ex((proxy.host, proxy.port))
-        sock.close()
-        if result == 0:
-            state.log(f"  [*] 端口 {proxy.port} 连通性测试通过")
-        else:
-            state.log(f"  [!] 端口 {proxy.port} 无法连接 (错误码: {result})")
-            state.log(f"  [!] 可能原因: 1) 防火墙拦截 2) 代理服务未运行 3) 端口号错误")
-            return None, None
-    except Exception as e:
-        state.log(f"  [!] 端口测试异常: {str(e)}")
-        return None, None
-
     def make_proxies(uname):
         if uname:
             auth = f"{uname}:{proxy.password}@" if proxy.password else f"{uname}@"
         else:
             auth = ""
-        proxy_url = f"http://{auth}{proxy.host}:{proxy.port}"
-        return {"http": proxy_url, "https": proxy_url}, uname
+        http_url = f"http://{auth}{proxy.host}:{proxy.port}"
+        https_url = f"https://{auth}{proxy.host}:{proxy.port}"
+        return {"http": http_url, "https": https_url}, uname
 
     test_urls = [
         "http://ip-api.com/json/?fields=status,message,country,countryCode,region,city,isp,query",
-        "http://api.ipify.org?format=json",
         "http://httpbin.org/ip",
-        "http://icanhazip.com",
-        "http://ifconfig.me/all.json",
     ]
 
     for attempt in range(max_retries):
@@ -259,15 +233,12 @@ def _try_proxy_connection(username_override=None, max_retries=3):
         try:
             proxies, final_username = make_proxies(test_username)
             
-            state.log(f"  正在连接代理... (尝试 {attempt + 1}/{max_retries})")
-            state.log(f"  代理配置: {proxy.host}:{proxy.port}")
-            state.log(f"  代理账号: {'有' if test_username else '无'}")
-            state.log(f"  代理URL: {proxies['http']}")
+            state.log(f"  正在连接代理... ({attempt + 1}/{max_retries})")
             
             session = requests.Session()
             retry_strategy = Retry(
                 total=1,
-                backoff_factor=0.5,
+                backoff_factor=0.3,
                 status_forcelist=[429, 500, 502, 503, 504],
                 allowed_methods=["GET"],
             )
@@ -280,6 +251,7 @@ def _try_proxy_connection(username_override=None, max_retries=3):
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Language": "en-US,en;q=0.9",
             })
+            session.timeout = 10
 
             for url_idx, test_url in enumerate(test_urls):
                 if state.should_stop() or (hasattr(state, 'auto_running') and not state.auto_running):
@@ -1094,6 +1066,7 @@ def api_state():
     with state.lock:
         return jsonify({
             "running": state.running,
+            "auto_running": state.auto_running,
             "phase": state.phase,
             "result": state.result,
             "error": state.error,
@@ -1497,7 +1470,7 @@ def auto_loop_thread():
                 
                 while proxy_connect_attempts < max_proxy_attempts and state.auto_running:
                     proxy_connect_attempts += 1
-                    state.log(f"  ─── 代理连接尝试 {proxy_connect_attempts}/{max_proxy_attempts} ───")
+                    state.log(f"  [代理] 尝试 {proxy_connect_attempts}/{max_proxy_attempts}")
                     real_ip_info = fetch_proxy_ip_info()
                     
                     if real_ip_info:
@@ -1505,23 +1478,18 @@ def auto_loop_thread():
                         proxy_country = real_ip_info["countryCode"]
                         real_isp = real_ip_info.get("isp", "Unknown ISP")
                         proxy_actually_used = True
-                        # 使用用户设置的国家，优先于代理检测到的国家
                         target_country = state.proxy_config.get("country", proxy_country).upper()
-                        state.log(f"  ✓ 代理连接成功")
-                        state.log(f"    出口IP: {real_ip}")
-                        state.log(f"    用户设置地区: {target_country} | 代理实际地区: {proxy_country} | ISP: {real_isp}")
+                        state.log(f"  ✓ 代理连接成功 | IP: {real_ip} | 地区: {target_country}")
                         break
                     else:
                         state.log(f"  ✗ 代理连接失败")
                         if proxy_connect_attempts < max_proxy_attempts:
-                            wait_time = proxy_connect_attempts * 3
-                            state.log(f"  [*] 等待 {wait_time} 秒后重新尝试...")
+                            wait_time = 1
+                            state.log(f"  [*] 等待 {wait_time} 秒后重试...")
                             time.sleep(wait_time)
                 
                 if not real_ip_info:
-                    state.log(f"  [!] 代理连接失败: 已尝试 {max_proxy_attempts} 次")
-                    state.log(f"  [!] 错误分析: 1) 账号密码错误 2) 网络不通 3) 防火墙拦截")
-                    state.log(f"  [!] 跳过本次循环，继续下一次")
+                    state.log(f"  [!] 代理连接失败，跳过本次循环")
                     run_data = {
                         "run": current_run_num,
                         "success": False,
@@ -1587,7 +1555,7 @@ def auto_loop_thread():
             session_depth_label = "首次访问" if session_depth < 0.3 else "回访用户" if session_depth < 0.7 else "深度用户"
             page_views_in_session = _rnd.randint(1, 12)
             avg_scroll_depth = _rnd.uniform(20, 95)
-            time_on_page = _rnd.uniform(3, 90)
+            time_on_page = _rnd.uniform(2, 30)
             
             # 增加随机跳过概率，模拟真实用户并非每次都看广告
             skip_probability = _rnd.uniform(0.02, 0.08)
@@ -1613,7 +1581,7 @@ def auto_loop_thread():
             state.log(f"  平均滚动深度: {avg_scroll_depth:.0f}%")
             state.log(f"  页面停留时间: {time_on_page:.0f}秒")
 
-            time.sleep(_rnd.uniform(0.5, 1.5))
+            time.sleep(_rnd.uniform(0.2, 0.5))
 
             state.set_phase(2)
             state.log("─ Phase 2: 请求广告 ─")
@@ -1696,7 +1664,7 @@ def auto_loop_thread():
             state.set_phase(4)
             state.log("─ Phase 4: 点击跳转 ─")
             
-            reaction_delay = _rnd.uniform(1.5, 4.0)
+            reaction_delay = _rnd.uniform(0.3, 1.0)
             state.log(f"  [模拟] 用户正在考虑是否点击... ({reaction_delay:.1f}秒)")
             time.sleep(reaction_delay)
             
@@ -1850,7 +1818,7 @@ def auto_loop_thread():
                 net_client.cookies.set("roiify_click_id", click_id, domain="roiify.com")
                 wv.set_click_id(click_id)
             
-            landing_stay = _rnd.uniform(8.0, 18.0)
+            landing_stay = _rnd.uniform(3.0, 8.0)
             interaction_level = _rnd.choice(["deep", "medium", "light"])
             
             if interaction_level == "deep":
@@ -2011,7 +1979,7 @@ def auto_loop_thread():
             if proxy.enabled:
                 state.log(f"  [*] 准备轮换代理会话...")
             
-            wait_secs = _rnd.uniform(1, 3)
+            wait_secs = _rnd.uniform(0.5, 1.5)
             for _ in range(int(wait_secs * 10)):
                 if state.should_stop() or not state.auto_running:
                     break
@@ -2027,7 +1995,7 @@ def auto_loop_thread():
                 "duration": 0,
             }
             state.update_stats(run_data)
-            wait_secs = _rnd.uniform(2, 5)
+            wait_secs = _rnd.uniform(0.5, 1.5)
             for _ in range(int(wait_secs * 10)):
                 if state.should_stop() or not state.auto_running:
                     break

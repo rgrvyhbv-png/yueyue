@@ -366,6 +366,17 @@ let statsPollTimer = null;
 async function init() {
   await loadProxy();
   await loadDevice();
+  // 获取初始状态，确保刷新后能正确显示运行状态
+  try {
+    const sr = await fetch('/api/state');
+    const st = await sr.json();
+    running = st.running;
+    autoRunning = st.auto_running || false;
+    updateButtons();
+    if (autoRunning) {
+      startStatsPoll();
+    }
+  } catch(e) {}
   pollState();
 }
 
@@ -689,6 +700,7 @@ async function pollState() {
     const sr = await fetch('/api/state');
     const st = await sr.json();
     running = st.running;
+    autoRunning = st.auto_running || false;
     updateButtons();
     if (running) {
       setPhase(st.phase, 'active');
@@ -726,7 +738,9 @@ async function pollState() {
       document.getElementById('logBody').innerHTML = '';
     }
   } catch(e) { /* offline */ }
-  pollTimer = setTimeout(pollState, 400);
+  // 根据运行状态调整轮询间隔：运行时快一点，空闲时慢一点
+  const interval = (running || autoRunning) ? 1000 : 3000;
+  pollTimer = setTimeout(pollState, interval);
 }
 
 init();
