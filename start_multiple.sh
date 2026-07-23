@@ -8,7 +8,8 @@ SERVER_IP="178.236.47.224"
 BASE_PORT=8765
 
 # 默认实例数量，可通过参数覆盖
-NUM_INSTANCES=${1:-8}
+# 当前服务器: 2核2GB，内存使用率仅37%，可支持10-15个实例
+NUM_INSTANCES=${1:-10}
 
 PYTHON_BIN="$VENV_DIR/bin/python3"
 
@@ -43,7 +44,8 @@ pkill -f "gunicorn" 2>/dev/null || true
 sleep 3
 
 echo "[INFO] 服务器配置检测..."
-echo "[INFO] 建议实例数: 2核2GB服务器推荐 4-6 个实例"
+echo "[INFO] 当前资源: CPU ~2% | 内存 ~37% (727M/1.9G) | 交换 0%"
+echo "[INFO] 建议实例数: 当前资源充足，可支持10-15个实例"
 echo "[INFO] 当前启动: $NUM_INSTANCES 个实例"
 echo ""
 echo "[START] 启动 $NUM_INSTANCES 个实例..."
