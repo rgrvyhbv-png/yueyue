@@ -309,11 +309,11 @@ class PlaywrightBrowserEngine:
                         await page.goto(referrer, wait_until="domcontentloaded", timeout=10000)
                         await page.wait_for_timeout(random.randint(500, 1000))
 
-                    await page.goto(url, wait_until="networkidle", timeout=self._config.page_timeout * 1000)
+                    await page.goto(url, wait_until="domcontentloaded", timeout=self._config.page_timeout * 1000)
 
                     result["final_url"] = page.url
                     result["page_loaded"] = True
-                    result["content"] = await page.content()
+                    result["content"] = ""
 
                     click_id = None
                     for key in ["click_id", "tracking_id", "tid", "clickid", "cid", "vid"]:

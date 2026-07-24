@@ -739,7 +739,7 @@ async function pollState() {
     }
   } catch(e) { /* offline */ }
   // 根据运行状态调整轮询间隔：运行时快一点，空闲时慢一点
-  const interval = (running || autoRunning) ? 1000 : 3000;
+  const interval = (running || autoRunning) ? 2000 : 5000;
   pollTimer = setTimeout(pollState, interval);
 }
 

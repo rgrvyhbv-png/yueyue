@@ -1463,49 +1463,72 @@ def auto_loop_thread():
             real_isp = None
             proxy_actually_used = False
             proxy_connect_attempts = 0
-            max_proxy_attempts = 5
+            max_proxy_attempts = 2
 
             if proxy.enabled:
-                state.log(f"  代理已启用，正在检测出口IP...")
-                
-                while proxy_connect_attempts < max_proxy_attempts and state.auto_running:
-                    proxy_connect_attempts += 1
-                    state.log(f"  [代理] 尝试 {proxy_connect_attempts}/{max_proxy_attempts}")
-                    real_ip_info = fetch_proxy_ip_info()
+                # 缓存代理信息，每30次循环才重新检测，减少流量消耗
+                need_proxy_check = (current_run_num % 30 == 1) or (not hasattr(state, '_cached_proxy_info'))
+                if need_proxy_check:
+                    state.log(f"  代理已启用，正在检测出口IP...")
+                    while proxy_connect_attempts < max_proxy_attempts and state.auto_running:
+                        proxy_connect_attempts += 1
+                        state.log(f"  [代理] 尝试 {proxy_connect_attempts}/{max_proxy_attempts}")
+                        real_ip_info = fetch_proxy_ip_info()
+                        
+                        if real_ip_info:
+                            real_ip = real_ip_info["query"]
+                            proxy_country = real_ip_info["countryCode"]
+                            real_isp = real_ip_info.get("isp", "Unknown ISP")
+                            proxy_actually_used = True
+                            target_country = state.proxy_config.get("country", proxy_country).upper()
+                            state.log(f"  ✓ 代理连接成功 | IP: {real_ip} | 地区: {target_country}")
+                            # 缓存代理信息
+                            state._cached_proxy_info = {
+                                "ip": real_ip,
+                                "country": target_country,
+                                "isp": real_isp,
+                                "timestamp": time.time()
+                            }
+                            break
+                        else:
+                            state.log(f"  ✗ 代理连接失败")
+                            if proxy_connect_attempts < max_proxy_attempts:
+                                time.sleep(1)
                     
-                    if real_ip_info:
-                        real_ip = real_ip_info["query"]
-                        proxy_country = real_ip_info["countryCode"]
-                        real_isp = real_ip_info.get("isp", "Unknown ISP")
-                        proxy_actually_used = True
-                        target_country = state.proxy_config.get("country", proxy_country).upper()
-                        state.log(f"  ✓ 代理连接成功 | IP: {real_ip} | 地区: {target_country}")
-                        break
-                    else:
-                        state.log(f"  ✗ 代理连接失败")
-                        if proxy_connect_attempts < max_proxy_attempts:
-                            wait_time = 1
-                            state.log(f"  [*] 等待 {wait_time} 秒后重试...")
-                            time.sleep(wait_time)
-                
-                if not real_ip_info:
-                    state.log(f"  [!] 代理连接失败，跳过本次循环")
-                    run_data = {
-                        "run": current_run_num,
-                        "success": False,
-                        "platform": platform,
-                        "device": "N/A",
-                        "proxy_ip": None,
-                        "proxy_country": None,
-                        "error": "proxy_connection_failed",
-                        "duration": round(time.time() - run_start_time, 2),
-                        "ad_category": "N/A",
-                        "conversion_value": 0,
-                    }
-                    state.update_stats(run_data)
-                    continue
+                    if not real_ip_info:
+                        # 如果有缓存的代理信息，继续使用
+                        if hasattr(state, '_cached_proxy_info') and time.time() - state._cached_proxy_info["timestamp"] < 3600:
+                            state.log(f"  [!] 代理检测失败，使用缓存的代理信息")
+                            cached = state._cached_proxy_info
+                            real_ip = cached["ip"]
+                            target_country = cached["country"]
+                            real_isp = cached["isp"]
+                            proxy_actually_used = True
+                        else:
+                            state.log(f"  [!] 代理连接失败，跳过本次循环")
+                            run_data = {
+                                "run": current_run_num,
+                                "success": False,
+                                "platform": platform,
+                                "device": "N/A",
+                                "proxy_ip": None,
+                                "proxy_country": None,
+                                "error": "proxy_connection_failed",
+                                "duration": round(time.time() - run_start_time, 2),
+                                "ad_category": "N/A",
+                                "conversion_value": 0,
+                            }
+                            state.update_stats(run_data)
+                            continue
+                else:
+                    # 使用缓存的代理信息
+                    cached = state._cached_proxy_info
+                    real_ip = cached["ip"]
+                    target_country = cached["country"]
+                    real_isp = cached["isp"]
+                    proxy_actually_used = True
+                    state.log(f"  [代理] 使用缓存 | IP: {real_ip} | 地区: {target_country}")
             else:
-                # 使用用户设置的国家，默认US
                 target_country = state.proxy_config.get("country", "US").upper()
             
             state.log(f"  [*] 目标国家: {target_country}")
