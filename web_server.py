@@ -191,7 +191,6 @@ def generate_device(platform, device_age_days=300, country=None, exclude_models=
 
 def _try_proxy_connection(username_override=None, max_retries=2):
     import requests
-    import random
     import socket
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
@@ -220,10 +219,8 @@ def _try_proxy_connection(username_override=None, max_retries=2):
         https_url = f"https://{auth}{proxy.host}:{proxy.port}"
         return {"http": http_url, "https": https_url}, uname
 
-    test_urls = [
-        "http://ip-api.com/json/?fields=status,message,country,countryCode,region,city,isp,query",
-        "http://httpbin.org/ip",
-    ]
+    # 只需要简单测试连通性，用一个轻量URL
+    test_url = "http://www.google.com/generate_204"
 
     for attempt in range(max_retries):
         if state.should_stop() or (hasattr(state, 'auto_running') and not state.auto_running):
@@ -236,118 +233,67 @@ def _try_proxy_connection(username_override=None, max_retries=2):
             state.log(f"  正在连接代理... ({attempt + 1}/{max_retries})")
             
             session = requests.Session()
-            retry_strategy = Retry(
-                total=1,
-                backoff_factor=0.3,
-                status_forcelist=[429, 500, 502, 503, 504],
-                allowed_methods=["GET"],
-            )
-            adapter = HTTPAdapter(max_retries=retry_strategy)
-            session.mount("http://", adapter)
-            session.mount("https://", adapter)
+            session.timeout = 8
             
-            session.headers.update({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-            })
-            session.timeout = 10
-
-            for url_idx, test_url in enumerate(test_urls):
-                if state.should_stop() or (hasattr(state, 'auto_running') and not state.auto_running):
-                    state.log(f"  [!] 检测到停止信号，终止代理连接尝试")
-                    return None, None
-
-                try:
-                    state.log(f"  测试URL [{url_idx+1}/{len(test_urls)}]: {test_url}")
-                    resp = session.get(
-                        test_url,
-                        proxies=proxies,
-                        timeout=15,
-                    )
-                    
-                    if resp.status_code == 200:
-                        try:
-                            data = resp.json()
-                        except Exception as json_err:
-                            state.log(f"  [!] 响应解析失败: {str(json_err)[:50]}")
-                            continue
-                        
-                        if data.get("status") == "success" or "ip" in data or data.get("query"):
-                            ip_result = data.get("query", data.get("ip", "Unknown"))
-                            country = data.get("country", "Unknown")
-                            country_code = data.get("countryCode", "US")
-                            result = {
-                                "status": "success",
-                                "country": country,
-                                "countryCode": country_code,
-                                "region": data.get("region", ""),
-                                "city": data.get("city", ""),
-                                "isp": data.get("isp", data.get("org", "Unknown ISP")),
-                                "query": ip_result,
-                                "timezone": data.get("timezone", "UTC"),
-                            }
-                            state.log(f"  ✓ 代理连接成功")
-                            state.log(f"    IP: {ip_result}")
-                            state.log(f"    国家: {country} ({country_code})")
-                            state.log(f"    ISP: {result['isp']}")
-                            return result, test_username
-                        else:
-                            err_msg = data.get("message", data.get("error", ""))
-                            state.log(f"  [!] API返回错误: {err_msg}")
-                            continue
-                    elif resp.status_code == 407:
-                        state.log(f"  [!] 代理认证失败(407): 账号密码错误")
-                        return None, None
-                    elif resp.status_code == 403:
-                        state.log(f"  [!] 代理访问被拒绝(403): 可能IP被封禁")
-                        continue
-                    else:
-                        state.log(f"  [!] HTTP错误: {resp.status_code}")
-                        continue
-                except requests.exceptions.ProxyError as e:
-                    err_str = str(e)
-                    if "407" in err_str:
-                        state.log(f"  [!] 代理认证失败: 账号密码错误")
-                        return None, None
-                    elif "ECONNREFUSED" in err_str:
-                        state.log(f"  [!] 代理连接被拒绝: 端口 {proxy.port} 不可达")
-                        break
-                    else:
-                        state.log(f"  [!] 代理连接错误(URL {url_idx}): {err_str[:120]}")
-                        continue
-                except requests.exceptions.ConnectTimeout:
-                    state.log(f"  [!] 代理连接超时(URL {url_idx}): 网络延迟过高")
-                    continue
-                except requests.exceptions.ConnectionError as e:
-                    err_str = str(e)
-                    if "Network is unreachable" in err_str:
-                        state.log(f"  [!] 网络不可达: 请检查网络连接")
-                        break
-                    elif "Cannot assign requested address" in err_str:
-                        state.log(f"  [!] 无法分配地址: 本地网络问题")
-                        break
-                    else:
-                        state.log(f"  [!] 连接错误(URL {url_idx}): {err_str[:120]}")
-                        continue
-                except requests.exceptions.ReadTimeout:
-                    state.log(f"  [!] 读取超时(URL {url_idx}): 代理响应过慢")
-                    continue
-                except Exception as e:
-                    state.log(f"  [!] 未知错误(URL {url_idx}): {str(e)[:120]}")
-                    continue
-            
-            if attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 3
-                state.log(f"  [*] 等待 {wait_time} 秒后重试...")
-                time.sleep(wait_time)
+            try:
+                resp = session.get(
+                    test_url,
+                    proxies=proxies,
+                    timeout=8,
+                    allow_redirects=False,
+                )
                 
+                if resp.status_code in [200, 204, 301, 302, 403, 404]:
+                    target_country = state.proxy_config.get("country", "US").upper()
+                    result = {
+                        "status": "success",
+                        "country": target_country,
+                        "countryCode": target_country,
+                        "region": "",
+                        "city": "",
+                        "isp": "Proxy",
+                        "query": "proxy",
+                        "timezone": "UTC",
+                    }
+                    state.log(f"  ✓ 代理连接成功")
+                    return result, test_username
+                elif resp.status_code == 407:
+                    state.log(f"  [!] 代理认证失败(407): 账号密码错误")
+                    return None, None
+                else:
+                    state.log(f"  [!] HTTP状态码: {resp.status_code}")
+                    continue
+            except requests.exceptions.ProxyError as e:
+                err_str = str(e)
+                if "407" in err_str:
+                    state.log(f"  [!] 代理认证失败: 账号密码错误")
+                    return None, None
+                elif "ECONNREFUSED" in err_str:
+                    state.log(f"  [!] 代理连接被拒绝: 端口不可达")
+                    return None, None
+                else:
+                    state.log(f"  [!] 代理连接错误: {err_str[:100]}")
+                    continue
+            except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
+                state.log(f"  [!] 代理连接超时")
+                continue
+            except requests.exceptions.ConnectionError as e:
+                err_str = str(e)
+                if "Network is unreachable" in err_str:
+                    state.log(f"  [!] 网络不可达")
+                    return None, None
+                else:
+                    state.log(f"  [!] 连接错误: {err_str[:100]}")
+                    continue
+            
         except Exception as e:
-            state.log(f"  [!] 重试循环异常: {str(e)[:100]}")
-            if attempt < max_retries - 1:
-                time.sleep(2)
+            state.log(f"  [!] 未知错误: {str(e)[:100]}")
+            continue
+        
+        if attempt < max_retries - 1:
+            time.sleep(1)
     
-    state.log(f"  [!] 代理连接失败: 已尝试 {max_retries} 次，所有URL均无法访问")
+    state.log(f"  [!] 代理连接失败: 已尝试 {max_retries} 次")
     state.log(f"  [!] 请检查: 1) 代理账号密码 2) 网络连接 3) 防火墙设置")
     return None, None
 
@@ -1466,27 +1412,21 @@ def auto_loop_thread():
             max_proxy_attempts = 2
 
             if proxy.enabled:
-                # 缓存代理信息，每30次循环才重新检测，减少流量消耗
-                need_proxy_check = (current_run_num % 30 == 1) or (not hasattr(state, '_cached_proxy_info'))
+                # 缓存代理连接状态，每50次循环才重新检测，减少流量消耗
+                need_proxy_check = (current_run_num % 50 == 1) or (not hasattr(state, '_proxy_ok_cache'))
                 if need_proxy_check:
-                    state.log(f"  代理已启用，正在检测出口IP...")
+                    state.log(f"  代理已启用，正在验证连通性...")
                     while proxy_connect_attempts < max_proxy_attempts and state.auto_running:
                         proxy_connect_attempts += 1
                         state.log(f"  [代理] 尝试 {proxy_connect_attempts}/{max_proxy_attempts}")
                         real_ip_info = fetch_proxy_ip_info()
                         
                         if real_ip_info:
-                            real_ip = real_ip_info["query"]
-                            proxy_country = real_ip_info["countryCode"]
-                            real_isp = real_ip_info.get("isp", "Unknown ISP")
                             proxy_actually_used = True
-                            target_country = state.proxy_config.get("country", proxy_country).upper()
-                            state.log(f"  ✓ 代理连接成功 | IP: {real_ip} | 地区: {target_country}")
-                            # 缓存代理信息
-                            state._cached_proxy_info = {
-                                "ip": real_ip,
+                            target_country = state.proxy_config.get("country", "US").upper()
+                            state.log(f"  ✓ 代理连接成功 | 地区: {target_country}")
+                            state._proxy_ok_cache = {
                                 "country": target_country,
-                                "isp": real_isp,
                                 "timestamp": time.time()
                             }
                             break
@@ -1496,14 +1436,10 @@ def auto_loop_thread():
                                 time.sleep(1)
                     
                     if not real_ip_info:
-                        # 如果有缓存的代理信息，继续使用
-                        if hasattr(state, '_cached_proxy_info') and time.time() - state._cached_proxy_info["timestamp"] < 3600:
-                            state.log(f"  [!] 代理检测失败，使用缓存的代理信息")
-                            cached = state._cached_proxy_info
-                            real_ip = cached["ip"]
-                            target_country = cached["country"]
-                            real_isp = cached["isp"]
+                        if hasattr(state, '_proxy_ok_cache') and time.time() - state._proxy_ok_cache["timestamp"] < 600:
+                            state.log(f"  [!] 代理检测失败，使用缓存状态继续")
                             proxy_actually_used = True
+                            target_country = state._proxy_ok_cache["country"]
                         else:
                             state.log(f"  [!] 代理连接失败，跳过本次循环")
                             run_data = {
@@ -1521,13 +1457,9 @@ def auto_loop_thread():
                             state.update_stats(run_data)
                             continue
                 else:
-                    # 使用缓存的代理信息
-                    cached = state._cached_proxy_info
-                    real_ip = cached["ip"]
-                    target_country = cached["country"]
-                    real_isp = cached["isp"]
                     proxy_actually_used = True
-                    state.log(f"  [代理] 使用缓存 | IP: {real_ip} | 地区: {target_country}")
+                    target_country = state._proxy_ok_cache["country"]
+                    state.log(f"  [代理] 连接正常 | 地区: {target_country}")
             else:
                 target_country = state.proxy_config.get("country", "US").upper()
             
