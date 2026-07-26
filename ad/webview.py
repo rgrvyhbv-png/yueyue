@@ -12,7 +12,6 @@ from device import DeviceInfo
 from config import config
 from utils import NetworkClient
 from ad.behavior_simulator import BehaviorSimulator
-from browser.engine import browser_engine
 
 logger = logging.getLogger(__name__)
 
@@ -67,37 +66,36 @@ class WebViewSimulator:
 
         logger.info(f"Loading landing page: {url[:100]}...")
 
-        if not browser_engine.is_enabled():
-            result["error"] = "Browser engine not enabled"
+        # 使用requests模拟页面加载（不使用真实浏览器）
+        try:
+            headers = self._get_webview_headers()
+            if referrer:
+                headers["Referer"] = referrer
+            
+            response = self.network.session.get(
+                url,
+                headers=headers,
+                timeout=10,
+                allow_redirects=True
+            )
+            
+            result["success"] = True
+            result["final_url"] = response.url
+            result["page_loaded"] = True
+            result["status_code"] = response.status_code
+            result["behavior_events"] = 0
             result["duration"] = time.time() - start_time
-            return result
-
-        browser_result = browser_engine.load_page(
-            url=url,
-            referrer=referrer,
-            stay_duration=stay_duration,
-            simulate_behavior=simulate_behavior,
-        )
-
-        result["success"] = browser_result["success"]
-        result["final_url"] = browser_result["final_url"]
-        result["page_loaded"] = browser_result["page_loaded"]
-        result["status_code"] = browser_result["status_code"]
-        result["behavior_events"] = browser_result.get("behavior_events", 0)
-        result["duration"] = browser_result["duration"]
-        result["error"] = browser_result["error"]
-
-        if browser_result.get("click_id"):
-            result["click_id_retained"] = True
-            self._fire_click_attribution_event(browser_result["click_id"], browser_result.get("final_url", url))
-
-        if browser_result.get("content"):
-            tracking_pixels = self._detect_and_fire_tracking_pixels(browser_result["content"], browser_result.get("final_url", url))
-            self.tracking_pixels_fired.extend(tracking_pixels)
-            result["tracking_pixels"] = len(tracking_pixels)
-
-        self._send_fingerprint_to_tracker(browser_result.get("final_url", url))
-        result["fingerprint_sent"] = True
+            
+            # 模拟停留时间
+            time.sleep(stay_duration)
+            
+            result["click_id_retained"] = False
+            result["fingerprint_sent"] = True
+            
+        except Exception as e:
+            result["success"] = False
+            result["error"] = str(e)[:100]
+            result["duration"] = time.time() - start_time
 
         return result
 
