@@ -241,19 +241,6 @@ header {
         <button onclick="setTarget(100000)">10万</button>
       </div>
     </div>
-    <div class="browser-settings">
-      <label>浏览器:</label>
-      <input type="checkbox" id="browserEnabled" onchange="toggleBrowser()">
-      <select id="browserType">
-        <option value="chromium">Chrome</option>
-        <option value="firefox">Firefox</option>
-        <option value="webkit">Safari</option>
-      </select>
-      <input type="checkbox" id="browserHeadless" checked onchange="saveBrowserConfig()">
-      <label style="font-size:10px">无头</label>
-      <input type="number" id="browserWidth" value="375" onchange="saveBrowserConfig()">
-      <input type="number" id="browserHeight" value="812" onchange="saveBrowserConfig()">
-    </div>
     <button class="btn-primary" onclick="startAllAuto()">🔄 全部开始自动循环</button>
     <button class="btn-danger" onclick="stopAllSim()">⏹ 全部停止</button>
     <button class="refresh-btn" onclick="loadInstances()">🔄 刷新状态</button>
@@ -469,44 +456,6 @@ async function callInstanceApi(id, endpoint, data = {}) {
     showToast('error', `调用失败: ${e.message}`);
     return null;
   }
-}
-
-function getBrowserConfig() {
-  return {
-    enabled: document.getElementById('browserEnabled').checked,
-    browser_type: document.getElementById('browserType').value,
-    headless: document.getElementById('browserHeadless').checked,
-    viewport_width: parseInt(document.getElementById('browserWidth').value) || 375,
-    viewport_height: parseInt(document.getElementById('browserHeight').value) || 812,
-    page_timeout: 30,
-  };
-}
-
-async function saveBrowserConfig() {
-  const config = getBrowserConfig();
-  for (const inst of instances) {
-    if (inst.online) {
-      await fetch(`http://${SERVER_IP}:${inst.port}/api/browser`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-    }
-  }
-  if (config.enabled) {
-    showToast('info', `已启用真实浏览器 (${config.browser_type})`);
-  } else {
-    showToast('info', '已禁用浏览器引擎');
-  }
-}
-
-function toggleBrowser() {
-  const enabled = document.getElementById('browserEnabled').checked;
-  document.getElementById('browserType').disabled = !enabled;
-  document.getElementById('browserHeadless').disabled = !enabled;
-  document.getElementById('browserWidth').disabled = !enabled;
-  document.getElementById('browserHeight').disabled = !enabled;
-  saveBrowserConfig();
 }
 
 function getTargetImpressions() {

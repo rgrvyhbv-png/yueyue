@@ -9,6 +9,13 @@ import sys
 import threading
 import queue
 
+# 加载环境变量
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, request, jsonify, Response, send_file
@@ -48,8 +55,8 @@ class SimState:
             "provider": proxy.provider or "proxy001",
             "host": proxy.host,
             "port": proxy.port,
-            "username": proxy.username or "cqywpu596838_custom_zone_US",
-            "password": proxy.password or "pwd595247",
+            "username": proxy.username or os.environ.get("PROXY_USERNAME", ""),
+            "password": proxy.password or os.environ.get("PROXY_PASSWORD", ""),
             "proxy_type": "http",
             "country": "US",
             "api_key": "",
@@ -154,10 +161,13 @@ if _saved_proxy:
     # 如果加载的旧配置中的账号密码为空或使用了旧的GLOBAL账号，则使用新默认值
     old_username = state.proxy_config.get("username", "")
     if not old_username or "GLOBAL" in old_username:
-        state.proxy_config["username"] = "cqywpu596838_custom_zone_US"
-        state.proxy_config["password"] = "pwd595247"
-        state.proxy_config["country"] = "US"
-        save_proxy_config_to_file()
+        env_user = os.environ.get("PROXY_USERNAME", "")
+        env_pass = os.environ.get("PROXY_PASSWORD", "")
+        if env_user and env_pass:
+            state.proxy_config["username"] = env_user
+            state.proxy_config["password"] = env_pass
+            state.proxy_config["country"] = "US"
+            save_proxy_config_to_file()
 
 
 def generate_device(platform, device_age_days=300, country=None, exclude_models=None, max_attempts=30):
@@ -328,10 +338,13 @@ if _saved_proxy:
     # 如果加载的旧配置中的账号密码为空或使用了旧的GLOBAL账号，则使用新默认值
     old_username = state.proxy_config.get("username", "")
     if not old_username or "GLOBAL" in old_username:
-        state.proxy_config["username"] = "cqywpu596838_custom_zone_US"
-        state.proxy_config["password"] = "pwd595247"
-        state.proxy_config["country"] = "US"
-        save_proxy_config_to_file()
+        env_user = os.environ.get("PROXY_USERNAME", "")
+        env_pass = os.environ.get("PROXY_PASSWORD", "")
+        if env_user and env_pass:
+            state.proxy_config["username"] = env_user
+            state.proxy_config["password"] = env_pass
+            state.proxy_config["country"] = "US"
+            save_proxy_config_to_file()
     apply_proxy_config()
 
 
@@ -1053,8 +1066,8 @@ def api_proxy_delete():
         "provider": "proxy001",
         "host": "",
         "port": 0,
-        "username": "cqywpu596838_custom_zone_US",
-        "password": "pwd595247",
+        "username": os.environ.get("PROXY_USERNAME", ""),
+        "password": os.environ.get("PROXY_PASSWORD", ""),
         "proxy_type": "http",
         "country": "US",
         "api_key": "",

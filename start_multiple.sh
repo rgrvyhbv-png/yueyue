@@ -10,6 +10,11 @@ BASE_PORT=8765
 # 默认实例数量，可通过参数覆盖
 NUM_INSTANCES=${1:-20}
 
+# 加载代理环境变量
+if [ -f "$BASE_DIR/.env" ]; then
+    export $(cat "$BASE_DIR/.env" | xargs)
+fi
+
 PYTHON_BIN="$VENV_DIR/bin/python3"
 
 if [ ! -d "$VENV_DIR" ]; then
@@ -19,11 +24,6 @@ fi
 
 echo "[INIT] 安装依赖..."
 $PYTHON_BIN -m pip install -r "$BASE_DIR/requirements.txt" -q
-
-echo "[INIT] 安装Playwright浏览器..."
-$PYTHON_BIN -m playwright install chromium --with-deps 2>/dev/null || true
-$PYTHON_BIN -m playwright install firefox --with-deps 2>/dev/null || true
-$PYTHON_BIN -m playwright install webkit --with-deps 2>/dev/null || true
 
 mkdir -p "$LOG_DIR"
 mkdir -p "$PID_DIR"
