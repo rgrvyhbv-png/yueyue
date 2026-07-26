@@ -469,6 +469,7 @@ class RoiifyWebSDK:
         ]
         
         content_domains = [
+            # 金融类
             "https://www.financeadvice.com",
             "https://www.investmentguide.com",
             "https://www.creditcardreviews.com",
@@ -477,6 +478,23 @@ class RoiifyWebSDK:
             "https://www.mortgagetips.com",
             "https://www.debtreliefhelp.com",
             "https://www.retirementplanning.org",
+            # 新增高价值域名
+            "https://www.privatebanking.com",
+            "https://www.wealthmanagementadvisor.com",
+            "https://www.hedgefundinvesting.com",
+            "https://www.luxurycarreviews.com",
+            "https://www.highendcars.com",
+            "https://www.luxuryrealestate.com",
+            "https://www.premiumproperties.com",
+            "https://www.healthcareguide.com",
+            "https://www.medicalservices.com",
+            "https://www.franchiseopportunities.com",
+            "https://www.businessfranchise.com",
+            "https://www.annuityguide.com",
+            "https://www.luxurygoods.com",
+            "https://www.premiumfashion.com",
+            "https://www.luxurytravel.com",
+            "https://www.exclusivetravel.com",
         ]
         base_domain = random.choice(content_domains)
         
