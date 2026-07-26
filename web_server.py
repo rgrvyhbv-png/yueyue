@@ -18,7 +18,6 @@ from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
 from config import config, proxy
-from browser.engine import BrowserConfig, init_browser_engine, browser_engine
 
 logging.basicConfig(level=logging.WARNING)
 server_logger = logging.getLogger("web_server")
@@ -44,14 +43,6 @@ class SimState:
         self.current_device_android = None
         self.current_device_ios = None
         self.target_impressions = 0
-        self.browser_config = {
-            "enabled": False,
-            "headless": True,
-            "browser_type": "chromium",
-            "viewport_width": 375,
-            "viewport_height": 812,
-            "page_timeout": 30,
-        }
         self.proxy_config = {
             "enabled": proxy.enabled,
             "provider": proxy.provider or "proxy001",
@@ -1072,35 +1063,7 @@ def api_proxy_delete():
     return jsonify({"success": True})
 
 
-@app.route("/api/browser", methods=["GET", "POST"])
-def api_browser():
-    if request.method == "POST":
-        data = request.get_json(silent=True) or {}
-        for k in ("enabled", "headless", "browser_type", "viewport_width", "viewport_height", "page_timeout"):
-            if k in data:
-                state.browser_config[k] = data[k]
-        if "enabled" in data:
-            state.browser_config["enabled"] = bool(data["enabled"])
-        
-        bc = BrowserConfig(
-            enabled=state.browser_config["enabled"],
-            headless=state.browser_config["headless"],
-            browser_type=state.browser_config["browser_type"],
-            viewport_width=state.browser_config["viewport_width"],
-            viewport_height=state.browser_config["viewport_height"],
-            page_timeout=state.browser_config["page_timeout"],
-            proxy_host=proxy.host,
-            proxy_port=proxy.port,
-            proxy_username=proxy.username,
-            proxy_password=proxy.password,
-        )
-        
-        success = init_browser_engine(bc)
-        state.log(f"浏览器配置已更新: {'启用' if state.browser_config['enabled'] else '禁用'}")
-        if state.browser_config["enabled"] and not success:
-            state.log("[!] Playwright未安装，请先安装依赖")
-    
-    return jsonify(state.browser_config)
+
 
 
 @app.route("/api/stop", methods=["GET", "POST"])
