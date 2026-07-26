@@ -657,40 +657,68 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         time.sleep(reaction_delay)
         
         conversion_values = {
-            "saas_enterprise": 800.00,
-            "legal_services": 700.00,
-            "finance_mortgage": 600.00,
-            "real_estate_investing": 500.00,
-            "finance_investing_stocks": 400.00,
-            "b2b_software": 380.00,
-            "finance_insurance_health": 350.00,
-            "finance_crypto_trading": 320.00,
-            "finance_insurance_life": 280.00,
-            "education_professional": 240.00,
-            "finance_personal_loans": 200.00,
-            "finance_credit_cards_premium": 180.00,
-            "finance_debt_consolidation": 150.00,
-            "software_subscription": 120.00,
-            "ecommerce_high_ticket": 100.00,
+            # 超高价值类别 ($1000+)
+            "finance_private_banking": 1500.00,
+            "automotive_luxury": 1200.00,
+            "real_estate_luxury": 1100.00,
+            "finance_hedge_funds": 1000.00,
+            "healthcare_medical": 950.00,
+            # 高价值类别 ($500-$900)
+            "saas_enterprise": 850.00,
+            "legal_services": 750.00,
+            "finance_mortgage": 650.00,
+            "real_estate_investing": 550.00,
+            "finance_wealth_management": 520.00,
+            # 中等价值类别 ($300-$500)
+            "finance_investing_stocks": 450.00,
+            "b2b_software": 400.00,
+            "finance_insurance_health": 380.00,
+            "finance_crypto_trading": 350.00,
+            "business_franchise": 340.00,
+            "insurance_annuities": 320.00,
+            "finance_insurance_life": 300.00,
+            # 普通价值类别 ($150-$280)
+            "education_professional": 260.00,
+            "finance_personal_loans": 220.00,
+            "finance_credit_cards_premium": 200.00,
+            "travel_luxury": 180.00,
+            "ecommerce_luxury": 170.00,
+            "finance_debt_consolidation": 160.00,
+            "software_subscription": 140.00,
+            "ecommerce_high_ticket": 120.00,
         }
         categories = list(conversion_values.keys())
         
         value_weights = {
-            "saas_enterprise": 3.5,
-            "legal_services": 2.8,
-            "finance_mortgage": 2.5,
-            "real_estate_investing": 2.0,
-            "finance_investing_stocks": 2.2,
+            # 超高价值类别权重
+            "finance_private_banking": 5.0,
+            "automotive_luxury": 4.8,
+            "real_estate_luxury": 4.5,
+            "finance_hedge_funds": 4.2,
+            "healthcare_medical": 4.0,
+            # 高价值类别权重
+            "saas_enterprise": 3.8,
+            "legal_services": 3.2,
+            "finance_mortgage": 3.0,
+            "real_estate_investing": 2.8,
+            "finance_wealth_management": 2.5,
+            # 中等价值类别权重
+            "finance_investing_stocks": 2.3,
             "b2b_software": 2.0,
             "finance_insurance_health": 2.0,
             "finance_crypto_trading": 1.8,
+            "business_franchise": 1.8,
+            "insurance_annuities": 1.6,
             "finance_insurance_life": 1.5,
+            # 普通价值类别权重
             "education_professional": 1.2,
-            "finance_personal_loans": 1.2,
-            "finance_credit_cards_premium": 1.0,
-            "finance_debt_consolidation": 0.8,
-            "software_subscription": 0.6,
-            "ecommerce_high_ticket": 0.5,
+            "finance_personal_loans": 1.0,
+            "finance_credit_cards_premium": 0.8,
+            "travel_luxury": 0.8,
+            "ecommerce_luxury": 0.7,
+            "finance_debt_consolidation": 0.6,
+            "software_subscription": 0.5,
+            "ecommerce_high_ticket": 0.4,
         }
         
         weighted_values = [conversion_values[c] * value_weights[c] for c in categories]

@@ -164,6 +164,96 @@ class RoiifyWebSDK:
             "Professional training programs", "Continuing education online",
             "Career advancement courses", "Industry certification training",
             "Business management courses", "Leadership development programs"
+        ],
+        "healthcare_medical": [
+            "Healthcare services providers", "Medical clinics and hospitals",
+            "Private healthcare facilities", "Medical specialist services",
+            "Healthcare consulting", "Medical treatment centers",
+            "Specialized medical services", "Healthcare management",
+            "Medical tourism", "VIP healthcare services",
+            "Premium medical care", "Healthcare professionals",
+            "Medical diagnosis services", "Healthcare technology"
+        ],
+        "automotive_luxury": [
+            "Luxury car brands", "Premium automobile dealers",
+            "High-end luxury vehicles", "Luxury car leasing",
+            "Exotic cars for sale", "Luxury sports cars",
+            "Premium SUVs", "Luxury electric vehicles",
+            "Exclusive car dealerships", "Luxury car maintenance",
+            "High-performance cars", "Luxury automotive accessories",
+            "VIP car services", "Luxury car customization"
+        ],
+        "real_estate_luxury": [
+            "Luxury real estate properties", "High-end luxury homes",
+            "Luxury villas for sale", "Exclusive real estate listings",
+            "Premium properties", "Luxury penthouses",
+            "Luxury beachfront properties", "High-end residential",
+            "Luxury commercial real estate", "Exclusive property listings",
+            "Luxury real estate investments", "VIP property viewings",
+            "Luxury waterfront homes", "Premium real estate services"
+        ],
+        "wealth_management": [
+            "Wealth management services", "Private wealth advisors",
+            "Asset management services", "Investment portfolio management",
+            "Wealth planning services", "Private banking services",
+            "Financial wealth management", "High net worth advisory",
+            "Wealth preservation strategies", "Family office services",
+            "Investment management for wealthy", "Premium financial advisory",
+            "Wealth accumulation strategies", "Asset protection services"
+        ],
+        "business_franchise": [
+            "Business franchise opportunities", "Franchise business for sale",
+            "Top franchise opportunities", "Franchise investment",
+            "Best franchises to buy", "Franchise business models",
+            "Franchise consulting services", "Franchise startup",
+            "Popular franchise opportunities", "Franchise brand opportunities",
+            "Franchise business expansion", "Franchise development",
+            "Franchise marketing services", "Franchise support services"
+        ],
+        "private_banking": [
+            "Private banking services", "VIP banking services",
+            "Exclusive banking services", "Premium banking solutions",
+            "Private wealth management", "High net worth banking",
+            "Luxury banking services", "Personalized banking",
+            "Private client services", "Exclusive financial services",
+            "Premium investment services", "VIP financial planning",
+            "Private banking accounts", "High-end banking solutions"
+        ],
+        "insurance_annuities": [
+            "Annuity insurance products", "Retirement annuities",
+            "Fixed annuity plans", "Variable annuities",
+            "Indexed annuities", "Annuity retirement planning",
+            "Annuity investment options", "Annuity quotes",
+            "Best annuity providers", "Annuity income strategies",
+            "Annuity vs 401k", "Annuity benefits",
+            "Annuity for retirement", "Annuity payout options"
+        ],
+        "ecommerce_luxury": [
+            "Luxury goods online", "Premium designer brands",
+            "Luxury fashion online", "High-end luxury products",
+            "Exclusive luxury items", "Luxury jewelry online",
+            "Premium watches online", "Designer handbags online",
+            "Luxury accessories", "Exclusive luxury collections",
+            "VIP luxury shopping", "Premium luxury brands",
+            "Luxury home goods", "High-end luxury gifts"
+        ],
+        "travel_luxury": [
+            "Luxury travel destinations", "Premium travel experiences",
+            "Luxury vacation packages", "VIP travel services",
+            "Exclusive travel deals", "Luxury cruise vacations",
+            "Premium hotel bookings", "Luxury resort vacations",
+            "VIP travel planning", "Exclusive travel experiences",
+            "Luxury business travel", "Premium travel concierge",
+            "Luxury adventure travel", "High-end travel packages"
+        ],
+        "hedge_funds": [
+            "Hedge fund investments", "Alternative investments",
+            "Private equity funds", "Hedge fund strategies",
+            "Investment hedge funds", "Hedge fund managers",
+            "Institutional investments", "Private investment funds",
+            "Hedge fund performance", "Alternative asset management",
+            "Fund of funds", "Private wealth investing",
+            "Hedge fund research", "Alternative investment strategies"
         ]
     }
     
@@ -183,6 +273,17 @@ class RoiifyWebSDK:
         {"id": "software_subscription", "name": "Software Subscription", "category": "Business"},
         {"id": "ecommerce_high_ticket", "name": "High Ticket E-commerce", "category": "Retail"},
         {"id": "education_professional", "name": "Professional Education", "category": "Education"},
+        # 新增高价值广告类别
+        {"id": "healthcare_medical", "name": "Healthcare Services", "category": "Healthcare"},
+        {"id": "automotive_luxury", "name": "Luxury Cars", "category": "Automotive"},
+        {"id": "real_estate_luxury", "name": "Luxury Real Estate", "category": "Real Estate"},
+        {"id": "finance_wealth_management", "name": "Wealth Management", "category": "Finance"},
+        {"id": "business_franchise", "name": "Business Franchise", "category": "Business"},
+        {"id": "finance_private_banking", "name": "Private Banking", "category": "Finance"},
+        {"id": "insurance_annuities", "name": "Annuities", "category": "Finance"},
+        {"id": "ecommerce_luxury", "name": "Luxury Goods", "category": "Retail"},
+        {"id": "travel_luxury", "name": "Luxury Travel", "category": "Travel"},
+        {"id": "finance_hedge_funds", "name": "Hedge Funds", "category": "Finance"},
     ]
 
     def __init__(
@@ -294,21 +395,32 @@ class RoiifyWebSDK:
         url = f"{self.api_origin}/ad/request"
         
         category_weights = [
-            4.0,  # saas_enterprise (highest value)
-            3.5,  # finance_mortgage
-            3.0,  # finance_investing_stocks
-            2.8,  # finance_insurance_health (high value)
-            2.5,  # finance_insurance_life
-            2.2,  # finance_crypto_trading
-            1.8,  # finance_personal_loans
-            1.5,  # finance_credit_cards_premium
-            1.5,  # b2b_software
-            1.3,  # legal_services (high value)
-            1.2,  # real_estate_investing
-            1.0,  # finance_debt_consolidation
-            0.8,  # software_subscription
-            0.6,  # ecommerce_high_ticket
-            0.5,  # education_professional
+            5.0,  # saas_enterprise (highest value)
+            4.5,  # finance_mortgage
+            4.0,  # finance_investing_stocks
+            3.8,  # finance_insurance_health (high value)
+            3.5,  # finance_insurance_life
+            3.2,  # finance_crypto_trading
+            2.8,  # finance_personal_loans
+            2.5,  # finance_credit_cards_premium
+            2.5,  # b2b_software
+            3.0,  # legal_services (high value)
+            2.8,  # real_estate_investing
+            2.0,  # finance_debt_consolidation
+            1.5,  # software_subscription
+            1.2,  # ecommerce_high_ticket
+            1.0,  # education_professional
+            # 新增高价值类别权重
+            4.2,  # healthcare_medical
+            4.8,  # automotive_luxury
+            4.5,  # real_estate_luxury
+            4.0,  # finance_wealth_management
+            3.5,  # business_franchise
+            4.5,  # finance_private_banking
+            3.8,  # insurance_annuities
+            3.5,  # ecommerce_luxury
+            3.2,  # travel_luxury
+            4.0,  # finance_hedge_funds
         ]
         category = random.choices(self.AD_CATEGORIES, weights=category_weights, k=1)[0]
         
@@ -328,6 +440,17 @@ class RoiifyWebSDK:
             "software_subscription": "software_subscription",
             "ecommerce_high_ticket": "ecommerce_high_ticket",
             "education_professional": "education_professional",
+            # 新增类别映射
+            "healthcare_medical": "healthcare_medical",
+            "automotive_luxury": "automotive_luxury",
+            "real_estate_luxury": "real_estate_luxury",
+            "finance_wealth_management": "wealth_management",
+            "business_franchise": "business_franchise",
+            "finance_private_banking": "private_banking",
+            "insurance_annuities": "insurance_annuities",
+            "ecommerce_luxury": "ecommerce_luxury",
+            "travel_luxury": "travel_luxury",
+            "finance_hedge_funds": "hedge_funds",
         }
         keyword_group = category_id_to_keyword.get(category["id"], "personal_loans")
         keywords = self.FINANCIAL_KEYWORDS.get(keyword_group, self.FINANCIAL_KEYWORDS["personal_loans"])
@@ -451,6 +574,66 @@ class RoiifyWebSDK:
                 "Advance your career with professional training programs.",
                 "Industry-recognized certifications and online learning.",
             ],
+            "healthcare_medical": [
+                "Comprehensive healthcare services and medical treatment options.",
+                "Best medical clinics and healthcare providers for every need.",
+                "Premium healthcare services and medical specialist consultations.",
+                "Healthcare management and medical service comparisons.",
+            ],
+            "automotive_luxury": [
+                "Luxury car brands and premium automobile reviews.",
+                "Best luxury vehicles and high-end car models.",
+                "Exclusive luxury car dealerships and leasing options.",
+                "High-performance cars and luxury automotive accessories.",
+            ],
+            "real_estate_luxury": [
+                "Luxury real estate properties and exclusive homes for sale.",
+                "Premium properties and luxury residential listings.",
+                "Luxury villas and high-end real estate investments.",
+                "Exclusive property viewings and luxury real estate services.",
+            ],
+            "finance_wealth_management": [
+                "Wealth management services for high net worth individuals.",
+                "Professional asset management and investment portfolio strategies.",
+                "Private wealth advisors and financial planning services.",
+                "Wealth preservation and accumulation strategies.",
+            ],
+            "business_franchise": [
+                "Top business franchise opportunities and investment options.",
+                "Best franchises to buy and franchise business models.",
+                "Franchise consulting services and startup support.",
+                "Popular franchise opportunities and brand expansion.",
+            ],
+            "finance_private_banking": [
+                "Private banking services and exclusive financial solutions.",
+                "VIP banking services for high net worth clients.",
+                "Premium banking solutions and personalized financial services.",
+                "Exclusive investment services and private client banking.",
+            ],
+            "insurance_annuities": [
+                "Annuity insurance products and retirement planning.",
+                "Best annuity providers and payout options.",
+                "Fixed and variable annuities for secure retirement income.",
+                "Annuity investment strategies and retirement benefits.",
+            ],
+            "ecommerce_luxury": [
+                "Luxury goods and premium designer brands online.",
+                "Exclusive luxury items and high-end fashion products.",
+                "VIP luxury shopping experience and premium collections.",
+                "Luxury jewelry, watches, and designer accessories.",
+            ],
+            "travel_luxury": [
+                "Luxury travel destinations and premium vacation packages.",
+                "VIP travel services and exclusive travel experiences.",
+                "Luxury cruises and premium hotel bookings.",
+                "High-end travel planning and luxury resort vacations.",
+            ],
+            "finance_hedge_funds": [
+                "Hedge fund investments and alternative investment strategies.",
+                "Private equity funds and institutional investment options.",
+                "Professional hedge fund managers and fund performance.",
+                "Alternative asset management and private wealth investing.",
+            ],
         }
         
         content_tags = {
@@ -469,6 +652,17 @@ class RoiifyWebSDK:
             "software_subscription": ["software", "subscription", "SaaS", "cloud", "productivity", "tools"],
             "ecommerce_high_ticket": ["luxury", "premium", "high-end", "designer", "electronics", "shopping"],
             "education_professional": ["education", "professional", "certification", "training", "career", "courses"],
+            # 新增类别标签
+            "healthcare_medical": ["healthcare", "medical", "health", "doctor", "hospital", "treatment", "services", "clinic"],
+            "automotive_luxury": ["luxury", "cars", "automobile", "premium", "high-end", "vehicles", "sports cars", "exclusive"],
+            "real_estate_luxury": ["luxury", "real estate", "property", "premium", "exclusive", "villa", "penthouse", "homes"],
+            "finance_wealth_management": ["wealth", "management", "investment", "finance", "asset", "portfolio", "private", "high net worth"],
+            "business_franchise": ["franchise", "business", "opportunity", "investment", "startup", "brand", "expansion", "consulting"],
+            "finance_private_banking": ["private", "banking", "finance", "exclusive", "VIP", "premium", "wealth", "investment"],
+            "insurance_annuities": ["annuity", "insurance", "retirement", "investment", "payout", "income", "financial", "planning"],
+            "ecommerce_luxury": ["luxury", "fashion", "designer", "premium", "jewelry", "watches", "exclusive", "shopping"],
+            "travel_luxury": ["luxury", "travel", "vacation", "premium", "exclusive", "cruise", "resort", "VIP"],
+            "finance_hedge_funds": ["hedge funds", "investment", "private equity", "alternative", "fund", "portfolio", "institutional", "wealth"],
         }
         
         content_description = random.choice(content_descriptions.get(category["id"], content_descriptions["software_subscription"]))
@@ -513,34 +707,68 @@ class RoiifyWebSDK:
             "pageUrl": page_url,
             "contentDescription": content_description,
             "contentTags": ",".join(content_tag_list),
-            "userInterests": ",".join(random.sample(user_interests, 5)),
-            "contentLength": random.randint(800, 3500),
-            "contentQuality": round(random.uniform(0.75, 0.98), 2),
-            "pageRank": random.randint(3, 10),
-            "domainAuthority": random.randint(40, 85),
-            "trafficQualityScore": round(random.uniform(0.82, 0.97), 2),
-            "userEngagementScore": round(random.uniform(0.7, 0.95), 2),
-            "pageViews": random.randint(5000, 100000),
-            "avgTimeOnPage": random.randint(45, 180),
-            "avgSessionDuration": random.randint(90, 420),
-            "bounceRate": round(random.uniform(0.25, 0.55), 2),
+            "userInterests": ",".join(random.sample(user_interests, 6)),
+            # 提高内容质量指标
+            "contentLength": random.randint(1500, 5000),
+            "contentQuality": round(random.uniform(0.85, 0.99), 2),
+            "pageRank": random.randint(5, 10),
+            "domainAuthority": random.randint(60, 95),
+            "trafficQualityScore": round(random.uniform(0.88, 0.99), 2),
+            "userEngagementScore": round(random.uniform(0.8, 0.98), 2),
+            "pageViews": random.randint(20000, 500000),
+            "avgTimeOnPage": random.randint(60, 240),
+            "avgSessionDuration": random.randint(120, 600),
+            "bounceRate": round(random.uniform(0.15, 0.40), 2),
             "mobileOptimized": True,
             "sslEnabled": True,
-            "pageAge": random.randint(60, 730),
+            "pageAge": random.randint(180, 1095),
             "trafficSource": traffic_source,
             "sessionDepth": session_depth,
             "isReturningVisitor": is_returning_visitor,
             "viewabilityScore": round(viewability_score, 2),
-            "scrollDepth": random.randint(35, 95),
-            "pagesPerSession": round(random.uniform(1.5, 4.5), 1),
-            "userIntent": random.choice(["informational", "commercial", "navigational"]),
-            "userAgeRange": random.choice(["18-24", "25-34", "35-44", "45-54", "55-64", "65+"]),
-            "userIncomeLevel": random.choices(
-                ["low", "medium", "high", "premium"],
-                weights=[1.0, 2.5, 3.5, 2.0],
+            "scrollDepth": random.randint(50, 98),
+            "pagesPerSession": round(random.uniform(2.0, 6.0), 1),
+            "userIntent": random.choices(
+                ["informational", "commercial", "navigational"],
+                weights=[2.0, 5.0, 1.5],
                 k=1
             )[0],
-            "deviceTrustScore": round(random.uniform(0.7, 0.95), 2),
+            "userAgeRange": random.choices(
+                ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"],
+                weights=[1.0, 2.5, 3.5, 2.0, 1.5, 1.0],
+                k=1
+            )[0],
+            "userIncomeLevel": random.choices(
+                ["low", "medium", "high", "premium"],
+                weights=[0.5, 2.0, 4.5, 3.0],
+                k=1
+            )[0],
+            "deviceTrustScore": round(random.uniform(0.8, 0.99), 2),
+            # 新增高质量流量信号
+            "adRequestCount": self.requests_count + 1,
+            "visitorLifetime": random.randint(1, 365),
+            "totalSessions": random.randint(1, 50),
+            "avgClicksPerSession": round(random.uniform(0.5, 3.0), 1),
+            "conversionRate": round(random.uniform(0.01, 0.08), 4),
+            "trafficDiversityScore": round(random.uniform(0.7, 0.95), 2),
+            "contentRelevanceScore": round(random.uniform(0.8, 0.98), 2),
+            "userTrustScore": round(random.uniform(0.75, 0.97), 2),
+            "brandSafetyScore": round(random.uniform(0.85, 0.99), 2),
+            "engagementRate": round(random.uniform(0.05, 0.25), 4),
+            "socialShareCount": random.randint(100, 5000),
+            "commentCount": random.randint(10, 500),
+            "backlinkCount": random.randint(50, 2000),
+            "organicTrafficPercent": round(random.uniform(0.6, 0.9), 2),
+            "isBotTraffic": False,
+            "trafficGeoDiversity": round(random.uniform(0.6, 0.95), 2),
+            "pageLoadTime": round(random.uniform(0.5, 2.5), 2),
+            "firstContentfulPaint": round(random.uniform(0.3, 1.5), 2),
+            "cumulativeLayoutShift": round(random.uniform(0.01, 0.15), 2),
+            "coreWebVitalsScore": round(random.uniform(0.75, 0.98), 2),
+            "contentFreshness": random.randint(1, 30),
+            "authorityScore": round(random.uniform(0.6, 0.95), 2),
+            "topicRelevance": round(random.uniform(0.75, 0.98), 2),
+            "seasonalityFactor": round(random.uniform(0.8, 1.2), 2),
         }
         # 添加设备信息
         dev = self.device_info
