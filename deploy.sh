@@ -1,7 +1,7 @@
 #!/bin/bash
 
-REPO_URL="https://github.com/rgrvyhbv-png/xiaoxiao.git"
-PROJECT_DIR="/opt/roiify"
+REPO_URL="https://github.com/rgrvyhbv-png/yueyue.git"
+PROJECT_DIR="/opt/roiify_ad_simulator"
 NUM_INSTANCES=${1:-3}
 
 echo "=================================="
