@@ -704,9 +704,71 @@ class RoiifyWebSDK:
             k=1
         )[0]
         
-        is_returning_visitor = random.random() < 0.65
+        # 真实用户分布 - 不是所有都是高质量
+        is_returning_visitor = random.random() < 0.55
         
-        viewability_score = random.uniform(0.65, 0.95)
+        # 可查看性分数 - 符合真实分布
+        viewability_score = random.choices(
+            [round(random.uniform(0.4, 0.6), 2), round(random.uniform(0.6, 0.8), 2), round(random.uniform(0.8, 1.0), 2)],
+            weights=[3, 5, 2],
+            k=1
+        )[0]
+        
+        # 内容质量 - 不是所有都是最高
+        content_quality = random.choices(
+            [round(random.uniform(0.4, 0.6), 2), round(random.uniform(0.6, 0.8), 2), round(random.uniform(0.8, 1.0), 2)],
+            weights=[2, 5, 3],
+            k=1
+        )[0]
+        
+        # 域名权重 - 有些是新站
+        domain_authority = random.choices(
+            [random.randint(30, 50), random.randint(50, 70), random.randint(70, 100)],
+            weights=[3, 5, 2],
+            k=1
+        )[0]
+        
+        # 流量质量 - 有好有差
+        traffic_quality = random.choices(
+            [round(random.uniform(0.4, 0.6), 2), round(random.uniform(0.6, 0.8), 2), round(random.uniform(0.8, 1.0), 2)],
+            weights=[2, 6, 2],
+            k=1
+        )[0]
+        
+        # 用户参与度 - 符合真实分布
+        engagement_score = random.choices(
+            [round(random.uniform(0.3, 0.5), 2), round(random.uniform(0.5, 0.75), 2), round(random.uniform(0.75, 1.0), 2)],
+            weights=[3, 5, 2],
+            k=1
+        )[0]
+        
+        # 跳出率 - 真实数据
+        bounce_rate = random.choices(
+            [round(random.uniform(0.6, 0.85), 2), round(random.uniform(0.4, 0.6), 2), round(random.uniform(0.15, 0.4), 2)],
+            weights=[2, 5, 3],
+            k=1
+        )[0]
+        
+        # 设备可信度 - 不是100%
+        device_trust = random.choices(
+            [round(random.uniform(0.5, 0.7), 2), round(random.uniform(0.7, 0.85), 2), round(random.uniform(0.85, 1.0), 2)],
+            weights=[2, 5, 3],
+            k=1
+        )[0]
+        
+        # 权威分数
+        authority_score = random.choices(
+            [round(random.uniform(0.3, 0.5), 2), round(random.uniform(0.5, 0.7), 2), round(random.uniform(0.7, 1.0), 2)],
+            weights=[3, 5, 2],
+            k=1
+        )[0]
+        
+        # 核心Web指标
+        core_web_vitals = random.choices(
+            [round(random.uniform(0.5, 0.7), 2), round(random.uniform(0.7, 0.9), 2), round(random.uniform(0.9, 1.0), 2)],
+            weights=[2, 6, 2],
+            k=1
+        )[0]
         
         payload = {
             "placementId": placement_id,
@@ -725,68 +787,213 @@ class RoiifyWebSDK:
             "pageUrl": page_url,
             "contentDescription": content_description,
             "contentTags": ",".join(content_tag_list),
-            "userInterests": ",".join(random.sample(user_interests, 6)),
-            # 提高内容质量指标
-            "contentLength": random.randint(1500, 5000),
-            "contentQuality": round(random.uniform(0.85, 0.99), 2),
-            "pageRank": random.randint(5, 10),
-            "domainAuthority": random.randint(60, 95),
-            "trafficQualityScore": round(random.uniform(0.88, 0.99), 2),
-            "userEngagementScore": round(random.uniform(0.8, 0.98), 2),
-            "pageViews": random.randint(20000, 500000),
-            "avgTimeOnPage": random.randint(60, 240),
-            "avgSessionDuration": random.randint(120, 600),
-            "bounceRate": round(random.uniform(0.15, 0.40), 2),
-            "mobileOptimized": True,
-            "sslEnabled": True,
-            "pageAge": random.randint(180, 1095),
+            "userInterests": ",".join(random.sample(user_interests, random.randint(3, 6))),
+            # 真实分布的内容质量指标
+            "contentLength": random.choices(
+                [random.randint(500, 1500), random.randint(1500, 3000), random.randint(3000, 8000)],
+                weights=[2, 5, 3],
+                k=1
+            )[0],
+            "contentQuality": content_quality,
+            "pageRank": random.choices(
+                [random.randint(1, 4), random.randint(5, 7), random.randint(8, 10)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "domainAuthority": domain_authority,
+            "trafficQualityScore": traffic_quality,
+            "userEngagementScore": engagement_score,
+            "pageViews": random.choices(
+                [random.randint(1000, 10000), random.randint(10000, 100000), random.randint(100000, 1000000)],
+                weights=[2, 6, 2],
+                k=1
+            )[0],
+            "avgTimeOnPage": random.choices(
+                [random.randint(10, 30), random.randint(30, 90), random.randint(90, 300)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "avgSessionDuration": random.choices(
+                [random.randint(30, 120), random.randint(120, 360), random.randint(360, 900)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "bounceRate": bounce_rate,
+            "mobileOptimized": random.random() < 0.95,
+            "sslEnabled": random.random() < 0.98,
+            "pageAge": random.choices(
+                [random.randint(30, 180), random.randint(180, 365), random.randint(365, 2000)],
+                weights=[3, 4, 3],
+                k=1
+            )[0],
             "trafficSource": traffic_source,
             "sessionDepth": session_depth,
             "isReturningVisitor": is_returning_visitor,
-            "viewabilityScore": round(viewability_score, 2),
-            "scrollDepth": random.randint(50, 98),
-            "pagesPerSession": round(random.uniform(2.0, 6.0), 1),
+            "viewabilityScore": viewability_score,
+            "scrollDepth": random.choices(
+                [random.randint(20, 50), random.randint(50, 75), random.randint(75, 100)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "pagesPerSession": round(random.choices(
+                [round(random.uniform(1.0, 2.5), 1), round(random.uniform(2.5, 4.0), 1), round(random.uniform(4.0, 8.0), 1)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 1),
             "userIntent": random.choices(
-                ["informational", "commercial", "navigational"],
-                weights=[2.0, 5.0, 1.5],
+                ["informational", "commercial", "navigational", "transactional"],
+                weights=[3.0, 4.5, 1.5, 0.5],
                 k=1
             )[0],
             "userAgeRange": random.choices(
                 ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"],
-                weights=[1.0, 2.5, 3.5, 2.0, 1.5, 1.0],
+                weights=[1.5, 3.0, 3.5, 2.0, 1.0, 0.5],
                 k=1
             )[0],
             "userIncomeLevel": random.choices(
                 ["low", "medium", "high", "premium"],
-                weights=[0.5, 2.0, 4.5, 3.0],
+                weights=[1.5, 3.5, 3.5, 1.5],
                 k=1
             )[0],
-            "deviceTrustScore": round(random.uniform(0.8, 0.99), 2),
-            # 新增高质量流量信号
+            "deviceTrustScore": device_trust,
+            # 会话追踪参数 - 更真实
             "adRequestCount": self.requests_count + 1,
-            "visitorLifetime": random.randint(1, 365),
-            "totalSessions": random.randint(1, 50),
-            "avgClicksPerSession": round(random.uniform(0.5, 3.0), 1),
-            "conversionRate": round(random.uniform(0.01, 0.08), 4),
-            "trafficDiversityScore": round(random.uniform(0.7, 0.95), 2),
-            "contentRelevanceScore": round(random.uniform(0.8, 0.98), 2),
-            "userTrustScore": round(random.uniform(0.75, 0.97), 2),
-            "brandSafetyScore": round(random.uniform(0.85, 0.99), 2),
-            "engagementRate": round(random.uniform(0.05, 0.25), 4),
-            "socialShareCount": random.randint(100, 5000),
-            "commentCount": random.randint(10, 500),
-            "backlinkCount": random.randint(50, 2000),
-            "organicTrafficPercent": round(random.uniform(0.6, 0.9), 2),
+            "visitorLifetime": random.choices(
+                [random.randint(1, 30), random.randint(30, 180), random.randint(180, 730)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "totalSessions": random.choices(
+                [random.randint(1, 5), random.randint(5, 20), random.randint(20, 100)],
+                weights=[4, 4, 2],
+                k=1
+            )[0],
+            "avgClicksPerSession": round(random.choices(
+                [round(random.uniform(0.1, 0.5), 1), round(random.uniform(0.5, 1.5), 1), round(random.uniform(1.5, 4.0), 1)],
+                weights=[4, 4, 2],
+                k=1
+            )[0], 1),
+            "conversionRate": round(random.choices(
+                [round(random.uniform(0.001, 0.01), 4), round(random.uniform(0.01, 0.05), 4), round(random.uniform(0.05, 0.15), 4)],
+                weights=[4, 4, 2],
+                k=1
+            )[0], 4),
+            "trafficDiversityScore": round(random.choices(
+                [round(random.uniform(0.3, 0.5), 2), round(random.uniform(0.5, 0.75), 2), round(random.uniform(0.75, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 2),
+            "contentRelevanceScore": round(random.choices(
+                [round(random.uniform(0.5, 0.7), 2), round(random.uniform(0.7, 0.9), 2), round(random.uniform(0.9, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 2),
+            "userTrustScore": round(random.choices(
+                [round(random.uniform(0.5, 0.7), 2), round(random.uniform(0.7, 0.9), 2), round(random.uniform(0.9, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 2),
+            "brandSafetyScore": round(random.choices(
+                [round(random.uniform(0.6, 0.8), 2), round(random.uniform(0.8, 0.95), 2), round(random.uniform(0.95, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 2),
+            "engagementRate": round(random.choices(
+                [round(random.uniform(0.01, 0.05), 4), round(random.uniform(0.05, 0.15), 4), round(random.uniform(0.15, 0.35), 4)],
+                weights=[4, 4, 2],
+                k=1
+            )[0], 4),
+            "socialShareCount": random.choices(
+                [random.randint(0, 50), random.randint(50, 500), random.randint(500, 10000)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "commentCount": random.choices(
+                [random.randint(0, 20), random.randint(20, 150), random.randint(150, 1000)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "backlinkCount": random.choices(
+                [random.randint(5, 50), random.randint(50, 200), random.randint(200, 5000)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "organicTrafficPercent": round(random.choices(
+                [round(random.uniform(0.2, 0.5), 2), round(random.uniform(0.5, 0.75), 2), round(random.uniform(0.75, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 2),
             "isBotTraffic": False,
-            "trafficGeoDiversity": round(random.uniform(0.6, 0.95), 2),
-            "pageLoadTime": round(random.uniform(0.5, 2.5), 2),
-            "firstContentfulPaint": round(random.uniform(0.3, 1.5), 2),
-            "cumulativeLayoutShift": round(random.uniform(0.01, 0.15), 2),
-            "coreWebVitalsScore": round(random.uniform(0.75, 0.98), 2),
-            "contentFreshness": random.randint(1, 30),
-            "authorityScore": round(random.uniform(0.6, 0.95), 2),
-            "topicRelevance": round(random.uniform(0.75, 0.98), 2),
-            "seasonalityFactor": round(random.uniform(0.8, 1.2), 2),
+            "trafficGeoDiversity": round(random.choices(
+                [round(random.uniform(0.3, 0.5), 2), round(random.uniform(0.5, 0.75), 2), round(random.uniform(0.75, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 2),
+            # 页面性能指标 - 更真实
+            "pageLoadTime": round(random.choices(
+                [round(random.uniform(2.0, 5.0), 2), round(random.uniform(1.0, 2.0), 2), round(random.uniform(0.3, 1.0), 2)],
+                weights=[2, 5, 3],
+                k=1
+            )[0], 2),
+            "firstContentfulPaint": round(random.choices(
+                [round(random.uniform(2.0, 4.0), 2), round(random.uniform(1.0, 2.0), 2), round(random.uniform(0.3, 1.0), 2)],
+                weights=[2, 5, 3],
+                k=1
+            )[0], 2),
+            "cumulativeLayoutShift": round(random.choices(
+                [round(random.uniform(0.1, 0.3), 2), round(random.uniform(0.05, 0.1), 2), round(random.uniform(0.0, 0.05), 2)],
+                weights=[2, 5, 3],
+                k=1
+            )[0], 2),
+            "coreWebVitalsScore": core_web_vitals,
+            # 内容新鲜度
+            "contentFreshness": random.choices(
+                [random.randint(30, 180), random.randint(7, 30), random.randint(1, 7)],
+                weights=[2, 5, 3],
+                k=1
+            )[0],
+            "authorityScore": authority_score,
+            "topicRelevance": round(random.choices(
+                [round(random.uniform(0.5, 0.7), 2), round(random.uniform(0.7, 0.9), 2), round(random.uniform(0.9, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 2),
+            "seasonalityFactor": round(random.uniform(0.7, 1.3), 2),
+            # 新增真实用户行为信号
+            "timeOnPage": random.choices(
+                [random.randint(5, 30), random.randint(30, 120), random.randint(120, 600)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "interactionDepth": random.choices(
+                [round(random.uniform(0.1, 0.3), 2), round(random.uniform(0.3, 0.6), 2), round(random.uniform(0.6, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "hasInteracted": random.random() < 0.7,
+            "interactionTypes": random.sample(["scroll", "click", "hover", "form", "video"], random.randint(1, 3)),
+            "viewportStability": round(random.choices(
+                [round(random.uniform(0.5, 0.7), 2), round(random.uniform(0.7, 0.9), 2), round(random.uniform(0.9, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0], 2),
+            "adViewDuration": round(random.uniform(1.0, 15.0), 1),
+            "inViewPercentage": random.choices(
+                [round(random.uniform(0.3, 0.5), 2), round(random.uniform(0.5, 0.8), 2), round(random.uniform(0.8, 1.0), 2)],
+                weights=[3, 5, 2],
+                k=1
+            )[0],
+            "viewportPosition": random.choices(
+                ["above_fold", "below_fold", "footer"],
+                weights=[5, 3, 2],
+                k=1
+            )[0],
+            "tabFocusTime": round(random.uniform(1.0, 30.0), 1),
+            "userActivity": random.choices(
+                ["active", "idle", "background"],
+                weights=[6, 3, 1],
+                k=1
+            )[0],
         }
         # 添加设备信息
         dev = self.device_info
@@ -934,12 +1141,76 @@ class RoiifyWebSDK:
             return True
 
         url = f"{self.api_origin}/ad/impression"
+        
+        # 计算真实的展示参数
+        view_duration_ms = round(view_duration * 1000)
+        
+        # 可见性百分比 - 模拟真实的广告可见情况
+        in_view_pct = round(random.uniform(0.5, 1.0), 2) if view_duration > 0 else 0
+        
+        # 视口位置 - 模拟广告在页面中的位置
+        viewport_pos = random.choices(
+            ["above_fold", "upper_mid", "lower_mid", "below_fold"],
+            weights=[4, 3, 2, 1],
+            k=1
+        )[0]
+        
+        # 用户是否在看
+        user_active = random.random() < 0.85
+        
+        # 可查看性分数
+        viewability = round(min(view_duration / 5.0, 1.0), 2) if view_duration > 0 else 0.5
+        
+        # 视口稳定性
+        viewport_stable = round(random.uniform(0.7, 1.0), 2)
+        
+        # 首次可见时间
+        first_visible_time = round(random.uniform(0.1, 2.0), 2)
+        
+        # 用户与广告的距离
+        ad_distance = round(random.uniform(0, 100), 1)
+        
         payload = {
             "token": token,
             "visitorId": self.visitor_id,
-            "viewDuration": round(view_duration * 1000),
-            "adInView": True,
+            "viewDuration": view_duration_ms,
+            "adInView": in_view_pct > 0.5,
+            "inViewPercentage": in_view_pct,
+            "viewportPosition": viewport_pos,
+            "userIsViewing": user_active,
+            "viewabilityScore": viewability,
+            "viewportStability": viewport_stable,
+            "firstVisibleTime": round(first_visible_time * 1000),
+            "adDistanceFromViewport": ad_distance,
+            "viewportScrollDepth": round(random.uniform(20, 90), 1),
+            "tabActive": random.random() < 0.9,
+            "windowFocused": random.random() < 0.85,
+            "userInteraction": random.choices(
+                ["none", "scroll", "hover", "click"],
+                weights=[3, 5, 1.5, 0.5],
+                k=1
+            )[0],
+            "interactionCount": random.randint(0, 15),
+            "scrollEvents": random.randint(0, 8),
+            "mouseMovements": random.randint(0, 25),
+            "touchEvents": random.randint(0, 10),
+            "pageRefreshed": False,
+            "adBlockEnabled": False,
+            "javascriptEnabled": True,
+            "cookiesEnabled": True,
+            "localStorageEnabled": True,
+            "sessionStorageEnabled": True,
+            "hasWebGL": True,
+            "hasCanvas": True,
+            "hasAudioContext": True,
+            "pixelRatio": round(random.choice([2, 3]), 1),
+            "colorDepth": random.choice([24, 32]),
+            "screenOrientation": random.choice(["portrait", "landscape"]),
+            "touchSupport": random.random() < 0.95,
+            "maxTouchPoints": random.choice([0, 5, 10]),
+            "devicePixelRatio": round(random.choice([2.0, 3.0]), 1),
         }
+        
         # 添加设备信息
         dev = self.device_info
         if dev:
@@ -947,7 +1218,19 @@ class RoiifyWebSDK:
             if hw and hasattr(hw, "screen_width") and hasattr(hw, "screen_height"):
                 payload["containerWidth"] = hw.screen_width
                 payload["containerHeight"] = hw.screen_height
-
+            if hw and hasattr(hw, "device_pixel_ratio"):
+                payload["devicePixelRatio"] = hw.device_pixel_ratio
+        
+        # 添加会话追踪
+        if self.last_ad:
+            ad_data = self.last_ad.get("ad", {})
+            payload["adId"] = ad_data.get("id", "")
+            payload["adType"] = ad_data.get("type", "banner")
+            payload["adFormat"] = ad_data.get("format", "banner")
+            payload["adCategory"] = ad_data.get("category", "")
+            payload["creativeId"] = ad_data.get("creativeId", "")
+            payload["campaignId"] = ad_data.get("campaignId", "")
+        
         logger.info("Sending impression...")
 
         current_session = self.session

@@ -1510,16 +1510,59 @@ def auto_loop_thread():
                 state.log("═══ 自动化循环已停止 ═══")
                 break
 
-            session_depth = _rnd.random()
+            # 更真实的会话状态模拟
+            session_depth = _rnd.choices(
+                [_rnd.random() * 0.3, 0.3 + _rnd.random() * 0.4, 0.7 + _rnd.random() * 0.3],
+                weights=[0.4, 0.4, 0.2],
+                k=1
+            )[0]
             session_depth_label = "首次访问" if session_depth < 0.3 else "回访用户" if session_depth < 0.7 else "深度用户"
-            page_views_in_session = _rnd.randint(1, 12)
-            avg_scroll_depth = _rnd.uniform(20, 95)
-            time_on_page = _rnd.uniform(2, 30)
             
-            # 增加随机跳过概率，模拟真实用户并非每次都看广告
-            skip_probability = _rnd.uniform(0.02, 0.08)
+            # 页面浏览量 - 符合真实分布
+            page_views_in_session = _rnd.choices(
+                [_rnd.randint(1, 3), _rnd.randint(3, 7), _rnd.randint(7, 20)],
+                weights=[0.35, 0.45, 0.2],
+                k=1
+            )[0]
+            
+            # 滚动深度 - 真实分布
+            avg_scroll_depth = _rnd.choices(
+                [_rnd.uniform(10, 40), _rnd.uniform(40, 70), _rnd.uniform(70, 100)],
+                weights=[0.3, 0.5, 0.2],
+                k=1
+            )[0]
+            
+            # 页面停留时间 - 真实分布
+            time_on_page = _rnd.choices(
+                [_rnd.uniform(5, 30), _rnd.uniform(30, 120), _rnd.uniform(120, 600)],
+                weights=[0.35, 0.45, 0.2],
+                k=1
+            )[0]
+            
+            # 用户交互类型
+            interaction_type = _rnd.choices(
+                ["浏览", "滚动", "点击", "填写表单", "观看视频"],
+                weights=[0.4, 0.35, 0.15, 0.05, 0.05],
+                k=1
+            )[0]
+            
+            # 跳过概率 - 更真实
+            skip_probability = _rnd.choices(
+                [_rnd.uniform(0.1, 0.2), _rnd.uniform(0.03, 0.1), _rnd.uniform(0.0, 0.03)],
+                weights=[0.2, 0.5, 0.3],
+                k=1
+            )[0]
             if _rnd.random() < skip_probability:
-                state.log(f"  [模拟] 用户跳过广告 (概率: {skip_probability*100:.1f}%)")
+                skip_reasons = [
+                    "用户对当前广告不感兴趣",
+                    "用户已找到所需信息",
+                    "页面加载太慢，用户离开了",
+                    "用户被其他内容吸引",
+                    "用户误操作关闭了页面",
+                    "广告位置不佳，用户没看到",
+                ]
+                reason = _rnd.choice(skip_reasons)
+                state.log(f"  [模拟] 用户跳过广告 - {reason}")
                 run_data = {
                     "run": current_run_num,
                     "success": False,
@@ -1528,6 +1571,7 @@ def auto_loop_thread():
                     "proxy_ip": real_ip,
                     "proxy_country": target_country,
                     "error": "user_skipped",
+                    "skip_reason": reason,
                     "duration": round(time.time() - run_start_time, 2),
                     "ad_category": "N/A",
                     "conversion_value": 0,
@@ -1539,8 +1583,9 @@ def auto_loop_thread():
             state.log(f"  本次会话页面数: {page_views_in_session}")
             state.log(f"  平均滚动深度: {avg_scroll_depth:.0f}%")
             state.log(f"  页面停留时间: {time_on_page:.0f}秒")
+            state.log(f"  用户行为: {interaction_type}")
 
-            time.sleep(_rnd.uniform(0.2, 0.5))
+            time.sleep(_rnd.uniform(0.3, 0.8))
 
             state.set_phase(2)
             state.log("─ Phase 2: 请求广告 ─")
