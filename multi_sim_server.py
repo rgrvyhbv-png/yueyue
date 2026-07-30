@@ -280,21 +280,27 @@ def worker_loop(worker):
     worker.log("自动化循环已停止")
 
 def apply_proxy_config():
-    pc = config.get("proxy", {})
-    proxy.enabled = pc.get("enabled", False)
-    proxy_protocol = pc.get("proxy_type", "http").lower()
-    proxy.country = pc.get("country", "")
-    proxy.api_key = pc.get("api_key", "")
-    proxy.proxy_type = proxy_protocol
+    # 从环境变量获取账号密码
+    username = os.environ.get("PROXY_USERNAME", "")
+    password = os.environ.get("PROXY_PASSWORD", "")
+    country = "US"
     
-    proxy.host = ""
-    proxy.port = 0
-    proxy.username = ""
-    proxy.password = ""
+    # 如果环境变量为空，尝试从配置文件读取
+    if not username or not password:
+        pc = config.get("proxy", {})
+        username = pc.get("username", username)
+        password = pc.get("password", password)
+        country = pc.get("country", "US")
+    
+    proxy.enabled = bool(username and password)
+    proxy.host = f"{country.lower()}.proxy001.com"
+    proxy.port = 7878
+    proxy.username = username
+    proxy.password = password
+    proxy.country = country
     proxy.provider = "proxy001"
-    
-    if proxy.api_key:
-        proxy.fetch_and_update_from_api()
+    proxy.proxy_type = "http"
+    proxy.api_key = ""
 
 @app.route('/')
 def index():
