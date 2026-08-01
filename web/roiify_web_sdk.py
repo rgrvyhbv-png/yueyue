@@ -1050,35 +1050,58 @@ class RoiifyWebSDK:
         logger.info(f"  Category: {category['name']} | Topic: {category['category']}")
         logger.info(f"  Page Title: {payload['pageTitle'][:60]}")
         logger.info(f"  Keywords: {', '.join(meta_keywords)[:80]}")
+        logger.info(f"  Proxy: {'enabled' if self.proxy_enabled else 'disabled'}")
 
         current_session = self.session
+        last_error = None
 
         for attempt in range(3):
             try:
+                logger.info(f"  Attempt {attempt+1}/3...")
                 response = current_session.post(
                     url,
                     json=payload,
                     headers=self._get_headers(),
-                    timeout=15,
+                    timeout=20,
                 )
 
-                logger.debug(f"Response status: {response.status_code}")
+                logger.info(f"  Response: HTTP {response.status_code}, size={len(response.content)} bytes")
 
                 if response.status_code == 204:
-                    logger.info("No ad available (204 No Content)")
+                    logger.info("  No ad available (204 No Content)")
                     self.last_ad = None
                     return None
 
-                if not response.ok:
-                    logger.warning(f"Ad request failed: HTTP {response.status_code}")
+                if response.status_code == 400:
+                    logger.warning(f"  Bad Request (400): {response.text[:200]}")
+                    self.last_ad = None
+                    return None
+
+                if response.status_code == 403:
+                    logger.warning(f"  Forbidden (403): Access denied - {response.text[:200]}")
+                    self.last_ad = None
+                    return None
+
+                if response.status_code == 429:
+                    logger.warning(f"  Rate Limited (429): Too many requests")
                     if attempt < 2:
-                        time.sleep(1)
+                        wait_time = (attempt + 1) * 3
+                        logger.info(f"  Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    return None
+
+                if not response.ok:
+                    logger.warning(f"  Ad request failed: HTTP {response.status_code} - {response.text[:200]}")
+                    last_error = f"HTTP_{response.status_code}"
+                    if attempt < 2:
+                        time.sleep(2)
                         continue
                     return None
 
                 data = response.json()
                 if not data or not data.get("ad"):
-                    logger.info("No ad in response")
+                    logger.info(f"  No ad in response (keys: {list(data.keys()) if data else 'empty'})")
                     self.last_ad = None
                     return None
 
@@ -1087,33 +1110,40 @@ class RoiifyWebSDK:
                 self.requests_count += 1
 
                 ad = data.get("ad", {})
-                logger.info(f"Ad received: type={ad.get('type', 'banner')}")
+                logger.info(f"  Ad received: type={ad.get('type', 'banner')}")
                 if ad.get("title"):
-                    logger.info(f"  Title: {ad['title'][:60]}")
+                    logger.info(f"    Title: {ad['title'][:60]}")
                 if ad.get("description"):
-                    logger.info(f"  Description: {ad['description'][:60]}")
-                logger.info(f"  Click URL: {data.get('clickUrl', '')[:80]}...")
-                logger.info(f"  Has impression token: {bool(data.get('impressionToken'))}")
+                    logger.info(f"    Description: {ad['description'][:60]}")
+                logger.info(f"    Click URL: {data.get('clickUrl', '')[:80]}...")
+                logger.info(f"    Has impression token: {bool(data.get('impressionToken'))}")
 
                 return data
 
             except requests.exceptions.Timeout:
-                logger.warning(f"Ad request timed out (attempt {attempt+1}), retrying...")
+                last_error = "timeout"
+                logger.warning(f"  Timeout (attempt {attempt+1}/3)")
                 if attempt < 2:
-                    time.sleep(2)
+                    wait_time = (attempt + 1) * 2
+                    time.sleep(wait_time)
                     continue
                 return None
 
             except requests.exceptions.ConnectionError as e:
                 err_str = str(e)
-                logger.warning(f"Ad request connection error (attempt {attempt+1}): {err_str[:100]}")
-                if "ConnectionResetError" in err_str or "ECONNRESET" in err_str:
+                last_error = f"connection_error: {err_str[:80]}"
+                logger.warning(f"  Connection error (attempt {attempt+1}/3): {err_str[:80]}")
+                if "ConnectionResetError" in err_str or "ECONNRESET" in err_str or "RemoteDisconnected" in err_str:
                     logger.info(f"  Connection reset, rotating session...")
                     current_session = requests.Session()
                     if self.proxy_enabled:
-                        proxies = self.proxy_config.get_proxies_dict(new_session=True)
-                        if proxies:
-                            current_session.proxies.update(proxies)
+                        try:
+                            proxies = self.proxy_config.get_proxies_dict(new_session=True)
+                            if proxies:
+                                current_session.proxies.update(proxies)
+                                logger.info(f"  Proxy reconfigured: {proxies}")
+                        except Exception as proxy_err:
+                            logger.warning(f"  Proxy reconfig failed: {proxy_err}")
                     self.session = current_session
                 if attempt < 2:
                     time.sleep(2)
@@ -1121,11 +1151,15 @@ class RoiifyWebSDK:
                 return None
 
             except Exception as e:
-                logger.error(f"Ad request error (attempt {attempt+1}): {e}")
+                last_error = f"{type(e).__name__}: {str(e)[:80]}"
+                logger.error(f"  Error (attempt {attempt+1}/3): {type(e).__name__}: {str(e)[:100]}")
                 if attempt < 2:
                     time.sleep(2)
                     continue
                 return None
+
+        logger.warning(f"  All attempts failed. Last error: {last_error}")
+        return None
 
     def send_impression(self, impression_token: Optional[str] = None, view_duration: float = 0) -> bool:
         token = impression_token or (

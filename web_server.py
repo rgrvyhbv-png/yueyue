@@ -1598,12 +1598,11 @@ def auto_loop_thread():
                 if click_url:
                     state.log(f"  ✓ 点击URL已获取: {click_url[:60]}...")
             else:
-                state.log(f"  ✗ 广告请求失败 (重试中...)")
-                # 广告请求失败时重试1次
-                if not hasattr(state, '_ad_retry') or state._ad_retry < 1:
-                    state._ad_retry = 1
+                # 广告请求失败时重试2次
+                for retry in range(2):
+                    state.log(f"  ✗ 广告请求失败 (第{retry+1}次重试)...")
                     time.sleep(2)
-                    # 重新创建SDK并重试
+                    # 重新创建SDK
                     web_sdk = RoiifyWebSDK(
                         user_agent=dev.browser.user_agent,
                         accept_language=dev.browser.accept_language,
@@ -1613,10 +1612,14 @@ def auto_loop_thread():
                         device_info=dev,
                     )
                     ad_response = web_sdk.request_ad(placement_id=placement_id, ad_format="banner")
-                    state._ad_retry = 0
                     
+                    if ad_response:
+                        state.log(f"  ✓ 重试成功")
+                        break
+                
                 if not ad_response:
-                    state.log(f"  ✗ 重试仍失败，跳过本次")
+                    state.log(f"  ✗ 所有重试均失败，跳过本次")
+                    state.log(f"  [诊断] 代理: {'启用' if proxy_actually_used else '未启用'} | IP: {real_ip or '本地'}")
                     run_data = {
                         "run": current_run_num,
                         "success": True,
@@ -1631,8 +1634,6 @@ def auto_loop_thread():
                     state.update_stats(run_data)
                     time.sleep(_rnd.uniform(2, 5))
                     continue
-                else:
-                    state.log(f"  ✓ 重试成功")
 
             if state.should_stop():
                 state.log("═══ 自动化循环已停止 ═══")
