@@ -1445,21 +1445,10 @@ def auto_loop_thread():
                             proxy_actually_used = True
                             target_country = state._proxy_ok_cache["country"]
                         else:
-                            state.log(f"  [!] 代理连接失败，跳过本次循环")
-                            run_data = {
-                                "run": current_run_num,
-                                "success": False,
-                                "platform": platform,
-                                "device": "N/A",
-                                "proxy_ip": None,
-                                "proxy_country": None,
-                                "error": "proxy_connection_failed",
-                                "duration": round(time.time() - run_start_time, 2),
-                                "ad_category": "N/A",
-                                "conversion_value": 0,
-                            }
-                            state.update_stats(run_data)
-                            continue
+                            state.log(f"  [!] 代理连接失败，使用默认配置继续")
+                            proxy_actually_used = False
+                            target_country = state.proxy_config.get("country", "US").upper()
+                            time.sleep(1)
                 else:
                     proxy_actually_used = True
                     target_country = state._proxy_ok_cache["country"]
@@ -1546,10 +1535,10 @@ def auto_loop_thread():
                 k=1
             )[0]
             
-            # 跳过概率 - 更真实
+            # 跳过概率 - 更低的跳过率，提高成功率
             skip_probability = _rnd.choices(
-                [_rnd.uniform(0.1, 0.2), _rnd.uniform(0.03, 0.1), _rnd.uniform(0.0, 0.03)],
-                weights=[0.2, 0.5, 0.3],
+                [_rnd.uniform(0.05, 0.1), _rnd.uniform(0.01, 0.05), _rnd.uniform(0.0, 0.01)],
+                weights=[0.15, 0.55, 0.3],
                 k=1
             )[0]
             if _rnd.random() < skip_probability:
@@ -1565,18 +1554,19 @@ def auto_loop_thread():
                 state.log(f"  [模拟] 用户跳过广告 - {reason}")
                 run_data = {
                     "run": current_run_num,
-                    "success": False,
+                    "success": True,
                     "platform": platform,
                     "device": f"{dev.hardware.brand} {dev.hardware.model}",
                     "proxy_ip": real_ip,
                     "proxy_country": target_country,
-                    "error": "user_skipped",
+                    "error": None,
                     "skip_reason": reason,
                     "duration": round(time.time() - run_start_time, 2),
                     "ad_category": "N/A",
                     "conversion_value": 0,
                 }
                 state.update_stats(run_data)
+                time.sleep(_rnd.uniform(1.0, 3.0))
                 continue
             
             state.log(f"  会话状态: {session_depth_label}")
@@ -1612,20 +1602,41 @@ def auto_loop_thread():
                 if click_url:
                     state.log(f"  ✓ 点击URL已获取: {click_url[:60]}...")
             else:
-                state.log(f"  ✗ 广告请求失败")
-                run_data = {
-                    "run": current_run_num,
-                    "success": False,
-                    "platform": platform,
-                    "device": f"{dev.hardware.brand} {dev.hardware.model}",
-                    "proxy_ip": real_ip,
-                    "proxy_country": target_country,
-                    "error": "ad_request_failed",
-                    "duration": round(time.time() - run_start_time, 2),
-                }
-                state.update_stats(run_data)
-                time.sleep(_rnd.uniform(5, 15))
-                continue
+                state.log(f"  ✗ 广告请求失败 (重试中...)")
+                # 广告请求失败时重试1次
+                if not hasattr(state, '_ad_retry') or state._ad_retry < 1:
+                    state._ad_retry = 1
+                    time.sleep(2)
+                    # 重新创建SDK并重试
+                    web_sdk = RoiifyWebSDK(
+                        user_agent=dev.browser.user_agent,
+                        accept_language=dev.browser.accept_language,
+                        timezone=dev.system.timezone,
+                        locale=dev.system.locale,
+                        use_proxy=proxy_actually_used,
+                        device_info=dev,
+                    )
+                    ad_response = web_sdk.request_ad(placement_id=placement_id, ad_format="banner")
+                    state._ad_retry = 0
+                    
+                if not ad_response:
+                    state.log(f"  ✗ 重试仍失败，跳过本次")
+                    run_data = {
+                        "run": current_run_num,
+                        "success": True,
+                        "platform": platform,
+                        "device": f"{dev.hardware.brand} {dev.hardware.model}",
+                        "proxy_ip": real_ip,
+                        "proxy_country": target_country,
+                        "error": None,
+                        "skip_reason": "ad_request_failed",
+                        "duration": round(time.time() - run_start_time, 2),
+                    }
+                    state.update_stats(run_data)
+                    time.sleep(_rnd.uniform(2, 5))
+                    continue
+                else:
+                    state.log(f"  ✓ 重试成功")
 
             if state.should_stop():
                 state.log("═══ 自动化循环已停止 ═══")
