@@ -85,14 +85,7 @@ def run_single_worker(worker):
     worker.log(f"开始模拟运行")
     
     try:
-        systems = ["ios", "android", "macos", "linux", "chromeos"]
-        system_weights = [30, 30, 15, 15, 10]
-        system = _rnd.choices(systems, weights=system_weights, k=1)[0]
-        
-        if system in ["macos", "linux", "chromeos"]:
-            platform = "android"
-        else:
-            platform = system
+        platform = _rnd.choice(["ios", "android"])
         
         device_age = _rnd.randint(30, 730)
         
@@ -114,15 +107,16 @@ def run_single_worker(worker):
             except Exception as e:
                 worker.log(f"  [警告] 代理连接测试失败: {str(e)[:50]}")
         
-        gen = DeviceFingerprintGenerator()
-        if platform == "android":
-            dev = gen.generate_android()
-        else:
-            dev = gen.generate_ios()
+        gen = DeviceFingerprintGenerator(platform=platform, device_age_days=device_age, country="US")
+        dev = gen.generate()
         
         web_sdk = RoiifyWebSDK(
-            device_fingerprint=dev,
-            proxy_config=proxy
+            user_agent=dev.browser.user_agent,
+            accept_language=dev.browser.accept_language,
+            timezone=dev.system.timezone,
+            locale=dev.system.locale,
+            use_proxy=proxy.enabled,
+            device_info=dev,
         )
         
         worker.log(f"  设备: {dev.hardware.brand} {dev.hardware.model}")
@@ -205,20 +199,29 @@ def run_single_worker(worker):
         ad_response = None
         try:
             worker.log(f"  发送广告请求...")
-            ad_response = web_sdk.request_ad()
-            worker.log(f"  请求成功")
+            import random as _rnd
+            placement_id = _rnd.choice(config.PLACEMENT_IDS)
+            ad_response = web_sdk.request_ad(placement_id=placement_id, ad_format="banner")
+            if ad_response:
+                worker.log(f"  请求成功")
+            else:
+                worker.log(f"  [!] 请求返回空结果")
         except Exception as e:
             worker.log(f"  [!] 广告请求失败: {str(e)[:80]}")
         
-        if ad_response and ad_response.get("success"):
+        if ad_response:
+            impression_token = ad_response.get("impressionToken")
+            click_url = ad_response.get("clickUrl", "")
+            
             worker.log(f"  广告曝光上报...")
             try:
-                web_sdk.send_impression()
+                view_dur = _rnd.uniform(5.0, 12.0)
+                web_sdk.send_impression(impression_token=impression_token, view_duration=view_dur)
                 worker.log(f"  曝光成功")
             except Exception as e:
                 worker.log(f"  [!] 曝光上报失败: {str(e)[:50]}")
             
-            if will_click and ad_response.get("clickUrl"):
+            if will_click and click_url:
                 worker.log(f"  用户点击广告...")
                 try:
                     web_sdk.send_click()
@@ -228,9 +231,16 @@ def run_single_worker(worker):
                 
                 try:
                     worker.log(f"  加载落地页...")
-                    webview = WebViewSimulator(device=dev, proxy_config=proxy)
-                    landing_result = webview.simulate_landing_page(ad_response.get("clickUrl", ""))
+                    from utils.network import NetworkClient
+                    net_client = NetworkClient(device=dev)
+                    webview = WebViewSimulator(device=dev, network=net_client)
+                    landing_result = webview.load_landing_page(
+                        url=ad_response.get("clickUrl", ""),
+                        referrer="https://www.roiify.net/",
+                        simulate_behavior=True,
+                    )
                     worker.log(f"  落地页: {'成功' if landing_result.get('success') else '失败'}")
+                    worker.log(f"  停留: {landing_result.get('duration', 0):.1f}s")
                 except Exception as e:
                     worker.log(f"  [!] 落地页模拟失败: {str(e)[:50]}")
             
@@ -284,12 +294,6 @@ def apply_proxy_config():
     username = os.environ.get("PROXY_USERNAME", "")
     password = os.environ.get("PROXY_PASSWORD", "")
 
-    # 如果环境变量为空，尝试从配置文件读取
-    if not username or not password:
-        pc = config.get("proxy", {})
-        username = pc.get("username", username)
-        password = pc.get("password", password)
-
     # 代理主机固定，地区由账号密码中的后缀决定（如 _custom_zone_US）
     proxy.enabled = bool(username and password)
     proxy.host = "us.proxy001.com"
@@ -303,7 +307,7 @@ def apply_proxy_config():
 
 @app.route('/')
 def index():
-    return send_file('web/dashboard.html')
+    return send_file('web/index.html')
 
 @app.route('/control.html')
 def control():

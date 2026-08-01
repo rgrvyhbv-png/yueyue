@@ -979,29 +979,45 @@ class DeviceFingerprintGenerator:
             available_devices = []
             for bp in self.ANDROID_DEVICE_PROFILES:
                 for dev in bp["devices"]:
-                    if dev["model"] not in self.USED_MODELS:
-                        available_devices.append((bp, dev))
+                    # 使用更精细的key: 机型+存储+RAM
+                    storages = dev["storage_gb"] if isinstance(dev["storage_gb"], list) else [dev["storage_gb"]]
+                    rams = dev["ram_gb"] if isinstance(dev["ram_gb"], list) else [dev["ram_gb"]]
+                    for storage_gb in storages:
+                        for ram_gb in rams:
+                            key = f"{dev['model']}|{storage_gb}GB|{ram_gb}GB"
+                            if key not in self.USED_MODELS:
+                                available_devices.append((bp, dev, storage_gb, ram_gb, key))
             
             if not available_devices:
-                # 机型用完了，动态添加新机型
+                # 组合用完了，动态添加新机型
                 self._generate_dynamic_android_device()
                 # 重新获取可用机型
                 for bp in self.ANDROID_DEVICE_PROFILES:
                     for dev in bp["devices"]:
-                        if dev["model"] not in self.USED_MODELS:
-                            available_devices.append((bp, dev))
+                        storages = dev["storage_gb"] if isinstance(dev["storage_gb"], list) else [dev["storage_gb"]]
+                        rams = dev["ram_gb"] if isinstance(dev["ram_gb"], list) else [dev["ram_gb"]]
+                        for storage_gb in storages:
+                            for ram_gb in rams:
+                                key = f"{dev['model']}|{storage_gb}GB|{ram_gb}GB"
+                                if key not in self.USED_MODELS:
+                                    available_devices.append((bp, dev, storage_gb, ram_gb, key))
                 # 如果还是没有（理论上不会），清空重新开始
                 if not available_devices:
                     self.USED_MODELS.clear()
                     for bp in self.ANDROID_DEVICE_PROFILES:
                         for dev in bp["devices"]:
-                            available_devices.append((bp, dev))
+                            storages = dev["storage_gb"] if isinstance(dev["storage_gb"], list) else [dev["storage_gb"]]
+                            rams = dev["ram_gb"] if isinstance(dev["ram_gb"], list) else [dev["ram_gb"]]
+                            for storage_gb in storages:
+                                for ram_gb in rams:
+                                    key = f"{dev['model']}|{storage_gb}GB|{ram_gb}GB"
+                                    available_devices.append((bp, dev, storage_gb, ram_gb, key))
             
-            brand_profile, dev = random.choice(available_devices)
+            brand_profile, dev, selected_storage, selected_ram, used_key = random.choice(available_devices)
             brand = brand_profile["brand"]
             manufacturer = brand_profile["manufacturer"]
             model = dev["model"]
-            self.USED_MODELS.add(model)
+            self.USED_MODELS.add(used_key)
         device_codename = dev["device"]
         product = dev["product"]
         board = dev["board"]
@@ -1034,8 +1050,8 @@ class DeviceFingerprintGenerator:
         else:
             chrome_ver = self.CHROME_VERSIONS[-2]
 
-        ram_gb = random.choice(dev["ram_gb"]) if isinstance(dev["ram_gb"], list) else dev["ram_gb"]
-        storage_gb = random.choice(dev["storage_gb"]) if isinstance(dev["storage_gb"], list) else dev["storage_gb"]
+        ram_gb = selected_ram
+        storage_gb = selected_storage
 
         locale_cfg = self._get_locale_config()
         locale, lang_code, country, timezone_name, tz_offset = (
@@ -1254,26 +1270,31 @@ class DeviceFingerprintGenerator:
         with self._used_models_lock:
             available_devices = []
             for dev in self.IOS_DEVICE_PROFILES:
-                if dev["model_name"] not in self.USED_MODELS:
-                    available_devices.append(dev)
+                # 使用更精细的key: 机型+存储+iOS版本
+                for storage in dev["storage_gb"] if isinstance(dev["storage_gb"], list) else [dev["storage_gb"]]:
+                    for ios_ver in ["15.0", "15.5", "15.7", "16.0", "16.3", "16.5", "16.6", "17.0", "17.2", "17.5"]:
+                        key = f"{dev['model_name']}|{storage}GB|iOS{ios_ver}"
+                        if key not in self.USED_MODELS:
+                            available_devices.append((dev, storage, ios_ver, key))
             
             if not available_devices:
+                # 所有组合用完了，清空重新开始
                 self.USED_MODELS.clear()
-                available_devices = self.IOS_DEVICE_PROFILES.copy()
+                for dev in self.IOS_DEVICE_PROFILES:
+                    for storage in dev["storage_gb"] if isinstance(dev["storage_gb"], list) else [dev["storage_gb"]]:
+                        for ios_ver in ["15.0", "15.5", "15.7", "16.0", "16.3", "16.5", "16.6", "17.0", "17.2", "17.5"]:
+                            key = f"{dev['model_name']}|{storage}GB|iOS{ios_ver}"
+                            available_devices.append((dev, storage, ios_ver, key))
             
-            dev = random.choice(available_devices)
-            model_id = dev["model_id"]
-            model_name = dev["model_name"]
-            self.USED_MODELS.add(model_name)
+            dev, storage_gb_val, os_ver, used_key = random.choice(available_devices)
+            self.USED_MODELS.add(used_key)
+        model_id = dev["model_id"]
+        model_name = dev["model_name"]
         release_year = dev["year"]
         screen_w, screen_h, dpi = dev["screen"]
         ram_gb = dev["ram_gb"]
-        storage_gb_val = random.choice(dev["storage_gb"]) if isinstance(dev["storage_gb"], list) else dev["storage_gb"]
         battery_cap = dev["battery"]
 
-        os_min, os_max = dev["os_range"]
-        ios_versions = ["15.0", "15.5", "15.7", "16.0", "16.3", "16.5", "16.6", "17.0", "17.2", "17.5"]
-        os_ver = random.choice(ios_versions)
         os_ver_ios = os_ver.replace(".", "_")
 
         locale_cfg = self._get_locale_config()
