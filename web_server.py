@@ -1478,10 +1478,7 @@ def auto_loop_thread():
             system_display = {
                 "ios": "iOS",
                 "android": "安卓",
-                "macos": "macOS",
-                "linux": "Linux",
-                "chromeos": "Chrome OS"
-            }.get(system, "未知")
+            }.get(platform, "未知")
             state.log(f"  设备: {dev.hardware.brand} {dev.hardware.model}")
             state.log(f"  系统: {system_display} ({dev.system.os_name} {dev.system.os_version})")
             state.log(f"  Chrome: {chrome_ver}")
