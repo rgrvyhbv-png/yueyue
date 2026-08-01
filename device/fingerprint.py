@@ -21,6 +21,7 @@ import threading
 class DeviceFingerprintGenerator:
     USED_MODELS = set()
     _used_models_lock = threading.Lock()
+    _dynamic_model_counter = 0  # 动态生成机型的计数器
     ANDROID_DEVICE_PROFILES = [
         {
             "brand": "Samsung",
@@ -804,6 +805,94 @@ class DeviceFingerprintGenerator:
     }
 
     @classmethod
+    def _generate_dynamic_android_device(cls) -> None:
+        """当所有机型用完时，动态生成新的安卓机型并添加到列表"""
+        cls._dynamic_model_counter += 1
+        
+        # 选择品牌
+        brands_config = [
+            ("Samsung", "samsung", "SM-DYN"),
+            ("Xiaomi", "Xiaomi", "MI-DYN"),
+            ("Google", "Google", "Pixel-DYN"),
+            ("OnePlus", "OnePlus", "OP-DYN"),
+            ("HONOR", "HONOR", "HONOR-DYN"),
+            ("Realme", "Realme", "RMX-DYN"),
+            ("Motorola", "Motorola", "XT-DYN"),
+        ]
+        brand_name, manufacturer, model_prefix = random.choice(brands_config)
+        
+        # 生成新机型名
+        new_model = f"{model_prefix}{cls._dynamic_model_counter:04d}"
+        new_device_codename = f"dyn_{cls._dynamic_model_counter:04d}"
+        
+        # 随机年份 (2023-2025)
+        year = random.choice([2023, 2024, 2025])
+        
+        # 根据年份选择SoC
+        if year == 2025:
+            board = "sm8750"
+            gpu_vendor = "Qualcomm"
+            gpu_name = "Adreno (TM) 830"
+            webgl = "OpenGL ES 3.2 V@0800.0"
+            cpu_freq = 3400000
+        elif year == 2024:
+            board = "sm8650"
+            gpu_vendor = "Qualcomm"
+            gpu_name = "Adreno (TM) 750"
+            webgl = "OpenGL ES 3.2 V@0705.0"
+            cpu_freq = 3200000
+        else:
+            board = "sm8550"
+            gpu_vendor = "Qualcomm"
+            gpu_name = "Adreno (TM) 740"
+            webgl = "OpenGL ES 3.2 V@0700.0"
+            cpu_freq = 3100000
+        
+        # 随机屏幕配置
+        screen_options = [
+            (1440, 3200, 480),
+            (1440, 3120, 480),
+            (1440, 3088, 500),
+            (1080, 2400, 400),
+        ]
+        screen = random.choice(screen_options)
+        
+        # 随机内存和存储
+        ram_options = [8, 12, 16]
+        storage_options = [128, 256, 512, 1024]
+        
+        # 构建新设备配置
+        new_device = {
+            "model": new_model,
+            "device": new_device_codename,
+            "product": f"{new_device_codename}_us",
+            "board": board,
+            "hardware": "qcom",
+            "year": year,
+            "screen": screen,
+            "gpu": (gpu_vendor, gpu_name, webgl),
+            "ram_gb": ram_options,
+            "storage_gb": storage_options,
+            "cpu_cores": 8,
+            "freq": cpu_freq,
+            "battery": random.choice([4000, 4500, 5000, 5500]),
+            "os_range": ("13", "15") if year <= 2023 else ("14", "15"),
+        }
+        
+        # 添加到对应品牌的设备列表
+        for bp in cls.ANDROID_DEVICE_PROFILES:
+            if bp["brand"] == brand_name:
+                bp["devices"].append(new_device)
+                return
+        
+        # 如果品牌不存在，创建新品牌
+        cls.ANDROID_DEVICE_PROFILES.append({
+            "brand": brand_name,
+            "manufacturer": manufacturer,
+            "devices": [new_device],
+        })
+
+    @classmethod
     def _build_locale_config(cls, country_code: str) -> dict:
         """为任意国家代码动态构建locale配置"""
         cc = country_code.upper()
@@ -894,10 +983,19 @@ class DeviceFingerprintGenerator:
                         available_devices.append((bp, dev))
             
             if not available_devices:
-                self.USED_MODELS.clear()
+                # 机型用完了，动态添加新机型
+                self._generate_dynamic_android_device()
+                # 重新获取可用机型
                 for bp in self.ANDROID_DEVICE_PROFILES:
                     for dev in bp["devices"]:
-                        available_devices.append((bp, dev))
+                        if dev["model"] not in self.USED_MODELS:
+                            available_devices.append((bp, dev))
+                # 如果还是没有（理论上不会），清空重新开始
+                if not available_devices:
+                    self.USED_MODELS.clear()
+                    for bp in self.ANDROID_DEVICE_PROFILES:
+                        for dev in bp["devices"]:
+                            available_devices.append((bp, dev))
             
             brand_profile, dev = random.choice(available_devices)
             brand = brand_profile["brand"]

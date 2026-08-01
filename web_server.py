@@ -172,8 +172,11 @@ if _saved_proxy:
 
 def generate_device(platform, device_age_days=300, country=None, exclude_models=None, max_attempts=30):
     exclude_models = exclude_models or set()
+    # 强制使用美国地区
+    target_country = country or "US"
+    
     for attempt in range(max_attempts):
-        fp = DeviceFingerprintGenerator(platform=platform, device_age_days=device_age_days, country=country)
+        fp = DeviceFingerprintGenerator(platform=platform, device_age_days=device_age_days, country=target_country)
         dev = fp.generate()
         model_key = f"{dev.hardware.brand}|{dev.hardware.model}"
         if model_key not in exclude_models:
@@ -182,7 +185,9 @@ def generate_device(platform, device_age_days=300, country=None, exclude_models=
             dev.system.app_version_code = config.DEFAULT_APP_VERSION_CODE
             return dev
         fp.regenerate()
-    fp = DeviceFingerprintGenerator(platform=platform, device_age_days=device_age_days, country=country)
+    
+    # 所有机型都用过了，强制使用美国地区继续生成
+    fp = DeviceFingerprintGenerator(platform=platform, device_age_days=device_age_days, country=target_country)
     dev = fp.generate()
     dev.system.app_package_name = config.DEFAULT_APP_PACKAGE
     dev.system.app_version = config.DEFAULT_APP_VERSION
