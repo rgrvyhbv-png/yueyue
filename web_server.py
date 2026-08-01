@@ -1394,19 +1394,14 @@ def auto_loop_thread():
         
         run_start_time = time.time()
         try:
-            systems = ["ios", "android", "macos", "linux", "chromeos"]
-            system_weights = [30, 30, 15, 15, 10]
-            system = _rnd.choices(systems, weights=system_weights, k=1)[0]
-            
-            if system in ["macos", "linux", "chromeos"]:
-                platform = "android"
-            else:
-                platform = system
-            
+            systems = ["android", "ios"]
+            system_weights = [50, 50]
+            platform = _rnd.choices(systems, weights=system_weights, k=1)[0]
+
             device_age = _rnd.randint(30, 730)
-            
+
             apply_proxy_config()
-            target_country = None
+            target_country = "US"
             real_ip_info = None
             real_ip = None
             real_isp = None

@@ -803,9 +803,6 @@ class DeviceFingerprintGenerator:
         return random.choices(self.LOCALE_CONFIGS, weights=weights, k=1)[0]
 
     def generate(self) -> DeviceInfo:
-        if self._cached_fingerprint is not None:
-            return self._cached_fingerprint
-
         now = int(time.time())
 
         if self.platform == "android":
