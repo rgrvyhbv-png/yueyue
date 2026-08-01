@@ -313,23 +313,22 @@ def apply_proxy_config():
     pc = state.proxy_config
     proxy.enabled = pc["enabled"]
     proxy_protocol = pc.get("proxy_type", "http").lower()
-    
-    country = pc.get("country", "US").upper()
+
     username = pc.get("username", "")
     password = pc.get("password", "")
-    
-    # 使用账号密码方式连接 proxy001 网关
-    proxy.host = f"{country.lower()}.proxy001.com" if country else "us.proxy001.com"
+
+    # 代理主机固定，地区由账号密码中的后缀决定（如 _custom_zone_US）
+    proxy.host = "us.proxy001.com"
     proxy.port = 7878
     proxy.username = username
     proxy.password = password
-    proxy.country = country
+    proxy.country = "US"
     proxy.provider = "proxy001"
     proxy.proxy_type = proxy_protocol
     proxy.api_key = ""
-    
-    state.log(f"  [代理] 使用账号密码方式: {proxy.host}:{proxy.port} 地区: {country}")
-    
+
+    state.log(f"  [代理] 使用账号密码方式: {proxy.host}:{proxy.port}")
+
     save_proxy_config_to_file()
 
 _saved_proxy = load_proxy_config_from_file()

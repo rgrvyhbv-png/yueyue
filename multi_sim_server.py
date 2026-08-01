@@ -283,21 +283,20 @@ def apply_proxy_config():
     # 从环境变量获取账号密码
     username = os.environ.get("PROXY_USERNAME", "")
     password = os.environ.get("PROXY_PASSWORD", "")
-    country = "US"
-    
+
     # 如果环境变量为空，尝试从配置文件读取
     if not username or not password:
         pc = config.get("proxy", {})
         username = pc.get("username", username)
         password = pc.get("password", password)
-        country = pc.get("country", "US")
-    
+
+    # 代理主机固定，地区由账号密码中的后缀决定（如 _custom_zone_US）
     proxy.enabled = bool(username and password)
-    proxy.host = f"{country.lower()}.proxy001.com"
+    proxy.host = "us.proxy001.com"
     proxy.port = 7878
     proxy.username = username
     proxy.password = password
-    proxy.country = country
+    proxy.country = "US"
     proxy.provider = "proxy001"
     proxy.proxy_type = "http"
     proxy.api_key = ""

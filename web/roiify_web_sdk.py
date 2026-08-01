@@ -1144,31 +1144,35 @@ class RoiifyWebSDK:
         
         # 计算真实的展示参数
         view_duration_ms = round(view_duration * 1000)
-        
-        # 可见性百分比 - 模拟真实的广告可见情况
-        in_view_pct = round(random.uniform(0.5, 1.0), 2) if view_duration > 0 else 0
-        
-        # 视口位置 - 模拟广告在页面中的位置
+
+        # 可见性百分比 - 确保大部分展示是可见的（>70%）
+        in_view_pct = round(random.uniform(0.7, 1.0), 2) if view_duration > 0 else round(random.uniform(0.6, 0.9), 2)
+
+        # 视口位置 - 大部分广告在首屏或上半部分
         viewport_pos = random.choices(
             ["above_fold", "upper_mid", "lower_mid", "below_fold"],
-            weights=[4, 3, 2, 1],
+            weights=[5, 3, 1.5, 0.5],
             k=1
         )[0]
-        
-        # 用户是否在看
-        user_active = random.random() < 0.85
-        
-        # 可查看性分数
-        viewability = round(min(view_duration / 5.0, 1.0), 2) if view_duration > 0 else 0.5
-        
+
+        # 用户是否在看 - 提高到95%
+        user_active = random.random() < 0.95
+
+        # 可查看性分数 - 确保高于0.7
+        viewability = round(min(max(view_duration / 5.0, 0.7), 1.0), 2)
+
         # 视口稳定性
-        viewport_stable = round(random.uniform(0.7, 1.0), 2)
-        
-        # 首次可见时间
-        first_visible_time = round(random.uniform(0.1, 2.0), 2)
-        
-        # 用户与广告的距离
-        ad_distance = round(random.uniform(0, 100), 1)
+        viewport_stable = round(random.uniform(0.8, 1.0), 2)
+
+        # 首次可见时间 - 越快越好
+        first_visible_time = round(random.uniform(0.1, 1.5), 2)
+
+        # 用户与广告的距离 - 大部分为0（广告在视口内）
+        ad_distance = random.choices(
+            [0, round(random.uniform(0, 20), 1), round(random.uniform(20, 50), 1)],
+            weights=[7, 2, 1],
+            k=1
+        )[0]
         
         payload = {
             "token": token,
@@ -1183,17 +1187,17 @@ class RoiifyWebSDK:
             "firstVisibleTime": round(first_visible_time * 1000),
             "adDistanceFromViewport": ad_distance,
             "viewportScrollDepth": round(random.uniform(20, 90), 1),
-            "tabActive": random.random() < 0.9,
-            "windowFocused": random.random() < 0.85,
+            "tabActive": random.random() < 0.97,
+            "windowFocused": random.random() < 0.95,
             "userInteraction": random.choices(
                 ["none", "scroll", "hover", "click"],
-                weights=[3, 5, 1.5, 0.5],
+                weights=[2, 5, 2, 1],
                 k=1
             )[0],
-            "interactionCount": random.randint(0, 15),
-            "scrollEvents": random.randint(0, 8),
+            "interactionCount": random.randint(1, 15),
+            "scrollEvents": random.randint(1, 8),
             "mouseMovements": random.randint(0, 25),
-            "touchEvents": random.randint(0, 10),
+            "touchEvents": random.randint(1, 10),
             "pageRefreshed": False,
             "adBlockEnabled": False,
             "javascriptEnabled": True,
@@ -1206,8 +1210,8 @@ class RoiifyWebSDK:
             "pixelRatio": round(random.choice([2, 3]), 1),
             "colorDepth": random.choice([24, 32]),
             "screenOrientation": random.choice(["portrait", "landscape"]),
-            "touchSupport": random.random() < 0.95,
-            "maxTouchPoints": random.choice([0, 5, 10]),
+            "touchSupport": True,
+            "maxTouchPoints": random.choice([5, 10]),
             "devicePixelRatio": round(random.choice([2.0, 3.0]), 1),
         }
         
