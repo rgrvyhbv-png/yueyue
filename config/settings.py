@@ -83,5 +83,52 @@ class RoiifyConfig:
         "level_up", "add_to_cart", "checkout_initiated",
     ])
 
+    # ========== 限流配置 ==========
+    # 全局每分钟最大请求数（所有实例合计）
+    GLOBAL_MAX_REQUESTS_PER_MINUTE: int = 60
+    # 单实例每分钟最大请求数
+    INSTANCE_MAX_REQUESTS_PER_MINUTE: int = 15
+    # 最小请求间隔（毫秒）
+    MIN_REQUEST_INTERVAL_MS: int = 3000
+    # 突发请求限制
+    BURST_SIZE: int = 3
+
+    # ========== 环境隔离配置 ==========
+    # 启用实例环境隔离
+    ENABLE_ENVIRONMENT_ISOLATION: bool = True
+    # Session最大生命周期（秒），超过后自动重建
+    SESSION_MAX_LIFETIME: int = 3600
+    # Cookie最大数量
+    MAX_COOKIES_PER_INSTANCE: int = 50
+    # Visitor ID重置间隔（请求数）
+    VISITOR_ID_RESET_INTERVAL: int = 100
+
+    # ========== 风控熔断配置 ==========
+    # 启用熔断器
+    ENABLE_CIRCUIT_BREAKER: bool = True
+    # 连续失败触发熔断的阈值
+    FAILURE_THRESHOLD: int = 5
+    # 恢复超时时间（秒）
+    RECOVERY_TIMEOUT: float = 30.0
+    # 半开状态最大请求数
+    HALF_OPEN_MAX_REQUESTS: int = 2
+    # 恢复阶段持续时间（秒）
+    RECOVERY_PHASE_DURATION: float = 60.0
+    # 全局熔断阈值（被封禁的实例数占比）
+    GLOBAL_BLOCK_THRESHOLD_RATIO: float = 0.5
+
+    # ========== 流量优化配置 ==========
+    # 跳过不必要的请求以节省流量
+    SKIP_UNNECESSARY_REQUESTS: bool = True
+    # 代理检测间隔（循环次数）
+    PROXY_CHECK_INTERVAL: int = 100
+    # 代理IP轮换间隔（请求数）
+    PROXY_ROTATION_INTERVAL: int = 50
+    # 落地页加载概率（0-1），降低流量消耗
+    LANDING_PAGE_LOAD_PROBABILITY: float = 0.7
+    # 模拟网络延迟（毫秒），添加随机性
+    NETWORK_DELAY_MIN: int = 50
+    NETWORK_DELAY_MAX: int = 200
+
 
 config = RoiifyConfig()

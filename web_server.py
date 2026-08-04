@@ -25,6 +25,7 @@ from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
 from config import config, proxy
+from core import RateLimiter, EnvironmentIsolation, MultiInstanceCircuitManager
 
 logging.basicConfig(level=logging.WARNING)
 server_logger = logging.getLogger("web_server")
@@ -73,6 +74,22 @@ class SimState:
         }
         self.current_run = 0
         self.used_device_models = set()
+        
+        # 限流与风控模块
+        instance_id = os.environ.get("INSTANCE_ID", "default")
+        self.rate_limiter = RateLimiter(
+            max_requests_per_minute=config.INSTANCE_MAX_REQUESTS_PER_MINUTE,
+            min_interval_ms=config.MIN_REQUEST_INTERVAL_MS,
+            burst_size=config.BURST_SIZE,
+            instance_id=instance_id,
+        )
+        self.env_isolation = EnvironmentIsolation()
+        self.circuit_manager = MultiInstanceCircuitManager()
+        self.circuit_manager.create_breaker(
+            instance_id=instance_id,
+            failure_threshold=config.FAILURE_THRESHOLD,
+            recovery_timeout=config.RECOVERY_TIMEOUT,
+        )
 
     def log(self, msg):
         ts = time.strftime("%H:%M:%S")
@@ -1386,8 +1403,22 @@ def main():
 def auto_loop_thread():
     import random as _rnd
     start_time = time.time()
+    instance_id = os.environ.get("INSTANCE_ID", "default")
     
     while state.auto_running:
+        # 熔断器检查
+        if config.ENABLE_CIRCUIT_BREAKER:
+            if not state.circuit_manager.can_execute(instance_id):
+                state.log(f"  [熔断] 实例被限流，等待恢复...")
+                time.sleep(5)
+                continue
+        
+        # 限流器检查
+        if config.ENABLE_ENVIRONMENT_ISOLATION:
+            if not state.rate_limiter.wait_for_token(max_wait=10.0):
+                state.log(f"  [限流] 请求间隔过短，等待令牌...")
+                continue
+        
         with state.lock:
             state.current_run += 1
             current_run_num = state.current_run
@@ -1415,8 +1446,10 @@ def auto_loop_thread():
             max_proxy_attempts = 2
 
             if proxy.enabled:
-                # 缓存代理连接状态，每50次循环才重新检测，减少流量消耗
-                need_proxy_check = (current_run_num % 50 == 1) or (not hasattr(state, '_proxy_ok_cache'))
+                # 使用配置的代理检测间隔
+                check_interval = config.PROXY_CHECK_INTERVAL
+                # 缓存代理连接状态，减少流量消耗
+                need_proxy_check = (current_run_num % check_interval == 1) or (not hasattr(state, '_proxy_ok_cache'))
                 if need_proxy_check:
                     state.log(f"  代理已启用，正在验证连通性...")
                     while proxy_connect_attempts < max_proxy_attempts and state.auto_running:
@@ -1591,6 +1624,11 @@ def auto_loop_thread():
             
             if ad_response:
                 state.log(f"  ✓ 广告请求成功")
+                # 记录熔断器成功
+                if config.ENABLE_CIRCUIT_BREAKER:
+                    state.circuit_manager.record_success(instance_id)
+                    state.rate_limiter.record_success()
+                
                 impression_token = ad_response.get("impressionToken")
                 click_url = ad_response.get("clickUrl", "")
                 if impression_token:
@@ -1598,6 +1636,11 @@ def auto_loop_thread():
                 if click_url:
                     state.log(f"  ✓ 点击URL已获取: {click_url[:60]}...")
             else:
+                # 记录熔断器失败
+                if config.ENABLE_CIRCUIT_BREAKER:
+                    state.circuit_manager.record_failure(instance_id, status_code=0)
+                    state.rate_limiter.record_failure()
+                
                 # 广告请求失败时重试2次
                 for retry in range(2):
                     state.log(f"  ✗ 广告请求失败 (第{retry+1}次重试)...")
@@ -1615,11 +1658,18 @@ def auto_loop_thread():
                     
                     if ad_response:
                         state.log(f"  ✓ 重试成功")
+                        state.circuit_manager.record_success(instance_id)
                         break
+                    else:
+                        state.circuit_manager.record_failure(instance_id, status_code=0)
                 
                 if not ad_response:
                     state.log(f"  ✗ 所有重试均失败，跳过本次")
                     state.log(f"  [诊断] 代理: {'启用' if proxy_actually_used else '未启用'} | IP: {real_ip or '本地'}")
+                    # 检查熔断器状态
+                    cb_status = state.circuit_manager.get_all_status()
+                    state.log(f"  [风控] 熔断器状态: {cb_status['instances'].get(instance_id, {}).get('state', 'unknown')}")
+                    
                     run_data = {
                         "run": current_run_num,
                         "success": True,
@@ -1632,7 +1682,10 @@ def auto_loop_thread():
                         "duration": round(time.time() - run_start_time, 2),
                     }
                     state.update_stats(run_data)
-                    time.sleep(_rnd.uniform(2, 5))
+                    # 动态等待时间，失败后增加间隔
+                    wait_time = _rnd.uniform(3, 8)
+                    state.log(f"  [等待] {wait_time:.1f}秒后继续...")
+                    time.sleep(wait_time)
                     continue
 
             if state.should_stop():
@@ -1851,6 +1904,34 @@ def auto_loop_thread():
 
             state.set_phase(5)
             state.log("─ Phase 5: Landing Page ─")
+            
+            # 流量优化：根据配置的概率决定是否加载落地页
+            landing_probability = config.LANDING_PAGE_LOAD_PROBABILITY
+            if config.SKIP_UNNECESSARY_REQUESTS and _rnd.random() > landing_probability:
+                state.log(f"  [流量优化] 跳过落地页加载 (概率 {landing_probability:.0%})")
+                run_duration = round(time.time() - run_start_time, 2)
+                state.log(f"═══ 第 {current_run_num} 次循环完成 (耗时 {run_duration}s) ═══")
+                run_data = {
+                    "run": current_run_num,
+                    "success": True,
+                    "platform": platform,
+                    "device": f"{dev.hardware.brand} {dev.hardware.model}",
+                    "proxy_ip": real_ip,
+                    "proxy_country": target_country,
+                    "impression_sent": imp_ok,
+                    "click_sent": click_sent,
+                    "landing_page_loaded": False,
+                    "conversion_attributed": False,
+                    "view_duration": round(view_dur, 1),
+                    "duration": run_duration,
+                    "ad_category": ad_category,
+                    "conversion_value": conversion_values.get(ad_category, 0),
+                    "traffic_optimized": True,
+                }
+                state.update_stats(run_data)
+                time.sleep(_rnd.uniform(5, 15))
+                continue
+            
             from utils.network import NetworkClient
             net_client = NetworkClient(device=dev)
             wv = WebViewSimulator(device=dev, network=net_client)
