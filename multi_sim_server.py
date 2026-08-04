@@ -20,6 +20,7 @@ from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
 from config import config, proxy
+from core import RateLimiter, MultiInstanceCircuitManager
 
 
 logging.basicConfig(level=logging.WARNING)
@@ -29,6 +30,9 @@ app_logger.setLevel(logging.INFO)
 app = Flask(__name__, static_folder='web', static_url_path='')
 
 MAX_WORKERS = 10
+
+# 全局熔断器管理器
+circuit_manager = MultiInstanceCircuitManager()
 
 class WorkerState:
     def __init__(self, worker_id):
@@ -50,6 +54,22 @@ class WorkerState:
             "total_revenue": 0.0,
         }
         self.thread = None
+        
+        # 限流模块
+        self.rate_limiter = RateLimiter(
+            max_requests_per_minute=config.INSTANCE_MAX_REQUESTS_PER_MINUTE,
+            min_interval_ms=config.MIN_REQUEST_INTERVAL_MS,
+            burst_size=config.BURST_SIZE,
+            instance_id=f"worker_{worker_id}",
+        )
+        
+        # 熔断器
+        if config.ENABLE_CIRCUIT_BREAKER:
+            circuit_manager.create_breaker(
+                instance_id=f"worker_{worker_id}",
+                failure_threshold=config.FAILURE_THRESHOLD,
+                recovery_timeout=config.RECOVERY_TIMEOUT,
+            )
 
     def log(self, msg):
         ts = time.strftime("%H:%M:%S")
@@ -229,20 +249,25 @@ def run_single_worker(worker):
                 except Exception as e:
                     worker.log(f"  [!] 点击上报失败: {str(e)[:50]}")
                 
-                try:
-                    worker.log(f"  加载落地页...")
-                    from utils.network import NetworkClient
-                    net_client = NetworkClient(device=dev)
-                    webview = WebViewSimulator(device=dev, network=net_client)
-                    landing_result = webview.load_landing_page(
-                        url=ad_response.get("clickUrl", ""),
-                        referrer="https://www.roiify.net/",
-                        simulate_behavior=True,
-                    )
-                    worker.log(f"  落地页: {'成功' if landing_result.get('success') else '失败'}")
-                    worker.log(f"  停留: {landing_result.get('duration', 0):.1f}s")
-                except Exception as e:
-                    worker.log(f"  [!] 落地页模拟失败: {str(e)[:50]}")
+                # 流量优化：根据配置的概率决定是否加载落地页
+                landing_probability = config.LANDING_PAGE_LOAD_PROBABILITY
+                if config.SKIP_UNNECESSARY_REQUESTS and _rnd.random() > landing_probability:
+                    worker.log(f"  [流量优化] 跳过落地页加载 (概率 {landing_probability:.0%})")
+                else:
+                    try:
+                        worker.log(f"  加载落地页...")
+                        from utils.network import NetworkClient
+                        net_client = NetworkClient(device=dev)
+                        webview = WebViewSimulator(device=dev, network=net_client)
+                        landing_result = webview.load_landing_page(
+                            url=ad_response.get("clickUrl", ""),
+                            referrer="https://www.roiify.net/",
+                            simulate_behavior=True,
+                        )
+                        worker.log(f"  落地页: {'成功' if landing_result.get('success') else '失败'}")
+                        worker.log(f"  停留: {landing_result.get('duration', 0):.1f}s")
+                    except Exception as e:
+                        worker.log(f"  [!] 落地页模拟失败: {str(e)[:50]}")
             
             else:
                 worker.log(f"  用户未点击广告")
@@ -267,7 +292,22 @@ def run_single_worker(worker):
         return {"success": False, "error": str(e)[:100]}
 
 def worker_loop(worker):
+    worker_id = f"worker_{worker.worker_id}"
+    
     while worker.auto_running:
+        # 熔断器检查
+        if config.ENABLE_CIRCUIT_BREAKER:
+            if not circuit_manager.can_execute(worker_id):
+                worker.log(f"  [熔断] 实例被限流，等待恢复...")
+                time.sleep(5)
+                continue
+        
+        # 限流器检查
+        if config.ENABLE_ENVIRONMENT_ISOLATION:
+            if not worker.rate_limiter.wait_for_token(max_wait=10.0):
+                worker.log(f"  [限流] 请求间隔过短，等待令牌...")
+                continue
+        
         with worker.lock:
             worker.current_run += 1
             worker.stop_requested = False
@@ -276,8 +316,18 @@ def worker_loop(worker):
         worker.log(f"  第 {worker.current_run} 次循环开始")
         worker.log(f"═══════════════════════════")
         
-        run_single_worker(worker)
+        result = run_single_worker(worker)
         
+        # 根据结果更新熔断器状态
+        if config.ENABLE_CIRCUIT_BREAKER:
+            if result.get("success"):
+                circuit_manager.record_success(worker_id)
+                worker.rate_limiter.record_success()
+            else:
+                circuit_manager.record_failure(worker_id, status_code=0)
+                worker.rate_limiter.record_failure()
+        
+        # 流量优化：减少落地页加载概率
         wait_secs = _rnd.uniform(5, 15)
         for _ in range(int(wait_secs * 10)):
             if worker.stop_requested or not worker.auto_running:
@@ -434,6 +484,29 @@ def api_stats():
 @app.route('/api/state')
 def api_state():
     return jsonify({"running": any(w.running for w in workers.values())})
+
+@app.route('/api/circuit-status')
+def api_circuit_status():
+    """获取熔断器状态"""
+    return jsonify(circuit_manager.get_all_status())
+
+@app.route('/api/rate-status')
+def api_rate_status():
+    """获取限流状态"""
+    result = {}
+    for wid, w in workers.items():
+        result[f"worker_{wid}"] = w.rate_limiter.get_stats()
+    return jsonify(result)
+
+@app.route('/api/traffic')
+def api_traffic():
+    """获取流量统计"""
+    return jsonify({
+        "instances": len(workers),
+        "total_requests": sum(w.stats["total_runs"] for w in workers.values()),
+        "success_runs": sum(w.stats["success_runs"] for w in workers.values()),
+        "total_revenue": sum(w.stats["total_revenue"] for w in workers.values()),
+    })
 
 def main():
     parser = argparse.ArgumentParser()
