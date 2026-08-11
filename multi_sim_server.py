@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, request, jsonify, Response, send_file
 
-from device.fingerprint import DeviceFingerprintGenerator
+from device.fingerprint import DeviceFingerprintGenerator, fingerprint_scheduler
 from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
@@ -210,7 +210,7 @@ def run_single_worker(worker):
         weights = [category_weights[c] for c in categories]
         ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
         
-        click_success_rate = 0.01
+        click_success_rate = 0.015
         will_click = _rnd.random() < click_success_rate
         
         worker.log(f"  广告类别: {ad_category} (价值${conversion_values.get(ad_category, 100)})")
@@ -295,6 +295,11 @@ def worker_loop(worker):
     worker_id = f"worker_{worker.worker_id}"
     
     while worker.auto_running:
+        # 定时检查并刷新设备指纹池
+        if fingerprint_scheduler.check_and_refresh():
+            status = fingerprint_scheduler.get_status()
+            worker.log(f"  [指纹调度] 设备指纹池已刷新 | 使用机型数: {status['used_models_count']} | 动态设备数: {status['dynamic_devices_added']}")
+        
         # 熔断器检查
         if config.ENABLE_CIRCUIT_BREAKER:
             if not circuit_manager.can_execute(worker_id):

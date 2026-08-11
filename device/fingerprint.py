@@ -431,6 +431,64 @@ class DeviceFingerprintGenerator:
                  "screen": (1440, 3120, 480), "gpu": ("Qualcomm", "Adreno (TM) 750", "OpenGL ES 3.2 V@0705.0"),
                  "ram_gb": [8, 12, 16], "storage_gb": [256, 512, 1024], "cpu_cores": 8, "freq": 3300000,
                  "battery": 4400, "os_range": ("14", "15")},
+                {"model": "XT2501-1", "device": "sunstone", "product": "sunstone_cn",
+                 "board": "sm8750", "hardware": "qcom", "year": 2025,
+                 "screen": (1440, 3120, 480), "gpu": ("Qualcomm", "Adreno (TM) 830", "OpenGL ES 3.2 V@0800.0"),
+                 "ram_gb": [12, 16], "storage_gb": [256, 512, 1024], "cpu_cores": 8, "freq": 3400000,
+                 "battery": 4600, "os_range": ("15", "15")},
+            ]
+        },
+        {
+            "brand": "Sony",
+            "manufacturer": "Sony",
+            "devices": [
+                {"model": "XQ-AS72", "device": "bengal", "product": "XQ-AS72",
+                 "board": "sm8550", "hardware": "qcom", "year": 2023,
+                 "screen": (1080, 2520, 450), "gpu": ("Qualcomm", "Adreno (TM) 740", "OpenGL ES 3.2 V@0700.0"),
+                 "ram_gb": [8, 12], "storage_gb": [128, 256, 512], "cpu_cores": 8, "freq": 3200000,
+                 "battery": 5000, "os_range": ("13", "15")},
+                {"model": "XQ-AS82", "device": "lisbon", "product": "XQ-AS82",
+                 "board": "sm8650", "hardware": "qcom", "year": 2024,
+                 "screen": (1080, 2520, 450), "gpu": ("Qualcomm", "Adreno (TM) 750", "OpenGL ES 3.2 V@0705.0"),
+                 "ram_gb": [12, 16], "storage_gb": [256, 512, 1024], "cpu_cores": 8, "freq": 3200000,
+                 "battery": 5000, "os_range": ("14", "15")},
+            ]
+        },
+        {
+            "brand": "Samsung",
+            "manufacturer": "samsung",
+            "devices": [
+                {"model": "SM-S948B", "device": "q3q", "product": "q3qxxx",
+                 "board": "sm8750", "hardware": "qcom", "year": 2025,
+                 "screen": (1440, 3120, 495), "gpu": ("Qualcomm", "Adreno (TM) 830", "OpenGL ES 3.2 V@0800.0"),
+                 "ram_gb": [12, 16, 24], "storage_gb": [256, 512, 1024], "cpu_cores": 8, "freq": 3400000,
+                 "battery": 4000, "os_range": ("15", "15")},
+                {"model": "SM-S946B", "device": "q4q", "product": "q4qxxx",
+                 "board": "sm8750", "hardware": "qcom", "year": 2025,
+                 "screen": (1440, 3120, 495), "gpu": ("Qualcomm", "Adreno (TM) 830", "OpenGL ES 3.2 V@0800.0"),
+                 "ram_gb": [12, 16], "storage_gb": [256, 512, 1024], "cpu_cores": 8, "freq": 3400000,
+                 "battery": 5000, "os_range": ("15", "15")},
+                {"model": "SM-A566B", "device": "a56x", "product": "a56xnx",
+                 "board": "exynos1580", "hardware": "s5e8855", "year": 2025,
+                 "screen": (1080, 2340, 432), "gpu": ("ARM", "Mali-G720 MC5", "OpenGL ES 3.2 v1.r40p0-01eac0."),
+                 "ram_gb": [6, 8, 12], "storage_gb": [128, 256, 512], "cpu_cores": 8, "freq": 2400000,
+                 "battery": 5000, "os_range": ("15", "15")},
+            ]
+        },
+        {
+            "brand": "Google",
+            "manufacturer": "Google",
+            "devices": [
+                {"model": "Pixel 10", "device": "panther", "product": "panther",
+                 "board": "gs501", "hardware": "tensor", "year": 2025,
+                 "screen": (1080, 2400, 420), "gpu": ("ARM", "Mali-G78 MP20", "OpenGL ES 3.2 v1.r36p0-01eac0."),
+                 "ram_gb": [8, 12], "storage_gb": [128, 256, 512], "cpu_cores": 8, "freq": 3200000,
+                 "battery": 5050, "os_range": ("16", "16")},
+                {"model": "Pixel 10 Pro XL", "device": "caiman", "product": "caiman",
+                 "board": "gs501", "hardware": "tensor", "year": 2025,
+                 "screen": (1440, 3120, 480), "gpu": ("ARM", "Mali-G78 MP20", "OpenGL ES 3.2 v1.r36p0-01eac0."),
+                 "ram_gb": [12, 16], "storage_gb": [256, 512, 1024], "cpu_cores": 8, "freq": 3400000,
+                 "battery": 5200, "os_range": ("16", "16")},
             ]
         },
     ]
@@ -510,6 +568,18 @@ class DeviceFingerprintGenerator:
          "battery": 3582, "os_range": ("18.0", "18.0")},
         {"model_id": "iPhone18,2", "model_name": "iPhone 16 Pro Max", "year": 2024,
          "screen": (1320, 2874, 460), "ram_gb": 8, "storage_gb": [128, 256, 512, 1024],
+         "battery": 4685, "os_range": ("18.0", "18.0")},
+        {"model_id": "iPhone19,1", "model_name": "iPhone 17", "year": 2025,
+         "screen": (1242, 2710, 460), "ram_gb": 8, "storage_gb": [128, 256, 512],
+         "battery": 3561, "os_range": ("18.0", "18.0")},
+        {"model_id": "iPhone19,2", "model_name": "iPhone 17 Plus", "year": 2025,
+         "screen": (1320, 2874, 460), "ram_gb": 8, "storage_gb": [128, 256, 512],
+         "battery": 4674, "os_range": ("18.0", "18.0")},
+        {"model_id": "iPhone20,1", "model_name": "iPhone 17 Pro", "year": 2025,
+         "screen": (1242, 2710, 460), "ram_gb": 12, "storage_gb": [256, 512, 1024],
+         "battery": 3582, "os_range": ("18.0", "18.0")},
+        {"model_id": "iPhone20,2", "model_name": "iPhone 17 Pro Max", "year": 2025,
+         "screen": (1320, 2874, 460), "ram_gb": 12, "storage_gb": [256, 512, 1024],
          "battery": 4685, "os_range": ("18.0", "18.0")},
     ]
 
@@ -1776,3 +1846,175 @@ class DeviceFingerprintGenerator:
             except (IndexError, ValueError):
                 pass
         return headers
+
+
+class DeviceFingerprintScheduler:
+    """
+    设备指纹定时更新调度器
+    
+    特性:
+    - 定时清理已使用的机型缓存
+    - 动态添加新的设备机型
+    - 定期刷新Chrome版本池
+    - 管理指纹池的多样性
+    """
+    
+    def __init__(self, refresh_interval_seconds: int = 3600):
+        self.refresh_interval = refresh_interval_seconds
+        self._last_refresh_time = time.time()
+        self._refresh_count = 0
+        self._lock = threading.RLock()  # 可重入锁，避免 force_refresh 内部调用 get_status 时死锁
+        self._chrome_versions_pool = [
+            "131.0.6778.200", "131.0.6778.139", "131.0.6778.108",
+            "130.0.6723.117", "130.0.6723.86", "130.0.6723.73",
+            "129.0.6668.100", "129.0.6668.89", "129.0.6668.70",
+            "128.0.6613.138", "128.0.6613.120", "128.0.6613.84",
+            "127.0.6533.120", "127.0.6533.99", "127.0.6533.88",
+            "126.0.6478.126", "126.0.6478.111", "126.0.6478.71",
+        ]
+        self._ios_versions_pool = [
+            "18.0", "18.1", "18.2", "18.3",
+            "17.0", "17.1", "17.2", "17.3", "17.4", "17.5", "17.6",
+            "16.6", "16.5", "16.4", "16.3", "16.2",
+            "15.7", "15.6", "15.5",
+        ]
+        self._android_versions_pool = [
+            ("14", 34, "34", "2023-10-01", "UP1A"),
+            ("14", 34, "34", "2023-11-01", "UP1A"),
+            ("13", 33, "33", "2022-08-01", "TP1A"),
+            ("13", 33, "33", "2022-10-01", "TP1A"),
+            ("12", 32, "32", "2022-03-01", "SP1A"),
+            ("11", 30, "30", "2020-09-01", "RP1A"),
+        ]
+    
+    def check_and_refresh(self) -> bool:
+        """
+        检查是否需要刷新，如果需要则执行刷新
+        返回是否执行了刷新
+        """
+        with self._lock:
+            now = time.time()
+            elapsed = now - self._last_refresh_time
+            
+            if elapsed < self.refresh_interval:
+                return False
+            
+            # 执行刷新
+            self._perform_refresh()
+            self._last_refresh_time = now
+            self._refresh_count += 1
+            return True
+    
+    def _perform_refresh(self):
+        """
+        执行指纹池刷新
+        """
+        # 1. 清理已使用机型缓存（保留最近200条），让之前用过的机型可以再次被选中
+        with DeviceFingerprintGenerator._used_models_lock:
+            models_list = list(DeviceFingerprintGenerator.USED_MODELS)
+            if len(models_list) > 200:
+                # 只保留最近的200条
+                DeviceFingerprintGenerator.USED_MODELS = set(models_list[-200:])
+            else:
+                # 缓存较少时直接清空，最大化机型多样性
+                DeviceFingerprintGenerator.USED_MODELS.clear()
+        
+        # 2. 更新Chrome版本池
+        self._refresh_chrome_versions()
+        
+        # 3. 更新iOS版本池
+        self._refresh_ios_versions()
+    
+    def _refresh_chrome_versions(self):
+        """
+        刷新Chrome版本池
+        """
+        # 以池中最高版本为基础，生成相近的新版本号（Chrome每月约+1大版本）
+        try:
+            current_majors = sorted(
+                {int(v.split(".")[0]) for v in self._chrome_versions_pool if v.split(".")[0].isdigit()},
+                reverse=True,
+            )
+        except (ValueError, IndexError):
+            current_majors = [131]
+        base_major = current_majors[0] if current_majors else 131
+        
+        new_versions = []
+        for major in (base_major, base_major + 1):
+            for _ in range(2):
+                minor = random.randint(6500, 6900)
+                patch = random.randint(70, 200)
+                new_versions.append(f"{major}.0.{minor}.{patch}")
+        
+        # 合并去重，保留池中原有的部分版本
+        new_versions.extend(self._chrome_versions_pool[:12])
+        self._chrome_versions_pool = list(set(new_versions))
+    
+    def _refresh_ios_versions(self):
+        """
+        刷新iOS版本池
+        """
+        # 随机补充 iOS 17/18 的子版本，增加多样性
+        new_ios_versions = [
+            f"18.{random.randint(0, 3)}",
+            f"17.{random.randint(0, 6)}",
+        ]
+        self._ios_versions_pool = list(set(new_ios_versions + self._ios_versions_pool[:10]))
+    
+    def get_status(self) -> Dict:
+        """
+        获取调度器状态
+        """
+        with self._lock:
+            now = time.time()
+            next_refresh = self._last_refresh_time + self.refresh_interval
+            elapsed = now - self._last_refresh_time
+            
+            return {
+                "refresh_count": self._refresh_count,
+                "last_refresh_time": self._last_refresh_time,
+                "next_refresh_time": next_refresh,
+                "time_until_next_refresh": max(0, next_refresh - now),
+                "elapsed_since_refresh": elapsed,
+                "chrome_versions_count": len(self._chrome_versions_pool),
+                "ios_versions_count": len(self._ios_versions_pool),
+                "used_models_count": len(DeviceFingerprintGenerator.USED_MODELS),
+                "dynamic_devices_added": DeviceFingerprintGenerator._dynamic_model_counter,
+            }
+    
+    def force_refresh(self) -> Dict:
+        """
+        强制执行刷新
+        """
+        with self._lock:
+            self._perform_refresh()
+            self._last_refresh_time = time.time()
+            self._refresh_count += 1
+            return self.get_status()
+    
+    def get_chrome_version(self) -> str:
+        """
+        获取随机Chrome版本
+        """
+        return random.choice(self._chrome_versions_pool)
+    
+    def get_ios_version(self) -> str:
+        """
+        获取随机iOS版本
+        """
+        return random.choice(self._ios_versions_pool)
+    
+    def get_android_version(self) -> tuple:
+        """
+        获取随机Android版本信息
+        """
+        version_info = random.choice(self._android_versions_pool)
+        # 随机选择一个版本
+        major_ver = version_info[0]
+        api_level = int(version_info[1])
+        sdk_level = version_info[2]
+        return (major_ver, api_level, sdk_level)
+
+
+# 全局调度器实例
+fingerprint_scheduler = DeviceFingerprintScheduler(refresh_interval_seconds=1800)

@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, request, jsonify, Response, send_file
 
-from device.fingerprint import DeviceFingerprintGenerator
+from device.fingerprint import DeviceFingerprintGenerator, fingerprint_scheduler
 from web.roiify_web_sdk import RoiifyWebSDK
 from ad.webview import WebViewSimulator
 
@@ -747,7 +747,7 @@ def run_simulation_thread(platform, device_age_days, system="auto"):
         weights = [v / total_weighted for v in weighted_values]
         
         ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
-        click_success_rate = 0.01
+        click_success_rate = 0.015
         state.log(f"  [模拟] 广告类别: {ad_category} (价值${conversion_values[ad_category]}) | 预估点击率: {click_success_rate*100:.1f}%")
         
         will_click = _rnd.random() < click_success_rate
@@ -1406,6 +1406,11 @@ def auto_loop_thread():
     instance_id = os.environ.get("INSTANCE_ID", "default")
     
     while state.auto_running:
+        # 定时检查并刷新设备指纹池
+        if fingerprint_scheduler.check_and_refresh():
+            status = fingerprint_scheduler.get_status()
+            state.log(f"  [指纹调度] 设备指纹池已刷新 | 使用机型数: {status['used_models_count']} | 动态设备数: {status['dynamic_devices_added']}")
+        
         # 熔断器检查
         if config.ENABLE_CIRCUIT_BREAKER:
             if not state.circuit_manager.can_execute(instance_id):
@@ -1802,7 +1807,7 @@ def auto_loop_thread():
             weights = [v / sum(weighted_values) for v in weighted_values]
             
             ad_category = _rnd.choices(categories, weights=weights, k=1)[0]
-            click_success_rate = 0.01
+            click_success_rate = 0.015
             state.log(f"  [模拟] 广告类别: {ad_category} (价值${conversion_values[ad_category]}) | 预估点击率: {click_success_rate*100:.1f}%")
                 
             will_click = _rnd.random() < click_success_rate
